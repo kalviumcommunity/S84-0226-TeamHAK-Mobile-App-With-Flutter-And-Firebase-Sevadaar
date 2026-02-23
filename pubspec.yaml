@@ -41,6 +41,15 @@ dependencies:
   firebase_auth: ^5.5.1
   cloud_firestore: ^5.6.5
 
+  # Google Sign-In
+  google_sign_in: ^6.2.2
+
+  # State Management
+  flutter_riverpod: ^2.6.1
+
+  # HTTP (for EmailJS)
+  http: ^1.2.2
+
   # Environment variables
   flutter_dotenv: ^5.2.1
 

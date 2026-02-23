@@ -1,25 +1,59 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../models/user_model.dart';
 
 /// Handles Firebase Authentication + Firestore user profile operations.
 class AuthService {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  // Lazy-load Firebase instances to handle platforms without Firebase support
+  FirebaseAuth? _authInstance;
+  FirebaseFirestore? _dbInstance;
 
-  /// Current Firebase user (null if signed-out).
-  User? get currentUser => _auth.currentUser;
+  /// Lazily initialize FirebaseAuth, handling cases where it's not available
+  FirebaseAuth get _auth {
+    try {
+      return _authInstance ??= FirebaseAuth.instance;
+    } catch (e) {
+      throw Exception('Firebase not initialized. Feature unavailable on this platform.');
+    }
+  }
+
+  /// Lazily initialize Firestore, handling cases where it's not available
+  FirebaseFirestore get _db {
+    try {
+      return _dbInstance ??= FirebaseFirestore.instance;
+    } catch (e) {
+      throw Exception('Firebase not initialized. Feature unavailable on this platform.');
+    }
+  }
+
+  /// Current Firebase user (null if signed-out or Firebase unavailable).
+  User? get currentUser {
+    try {
+      return _auth.currentUser;
+    } catch (e) {
+      return null;
+    }
+  }
 
   /// Auth state stream.
-  Stream<User?> get authStateChanges => _auth.authStateChanges();
+  Stream<User?> get authStateChanges {
+    try {
+      return _auth.authStateChanges();
+    } catch (e) {
+      // Return an empty stream on platforms without Firebase
+      return Stream.empty();
+    }
+  }
 
   // ── Sign Up ─────────────────────────────────────────────────────
   /// Creates a new Firebase Auth user + writes a `users` doc in Firestore.
-  /// All new users register as **Volunteer** by default (as per LLD).
+  /// Requires a valid 8-digit NGO join code.
   Future<UserModel> signUp({
     required String name,
     required String email,
     required String password,
+    required String orgId,
   }) async {
     // 1. Create auth account
     final cred = await _auth.createUserWithEmailAndPassword(
@@ -36,6 +70,7 @@ class AuthService {
       email: email.trim(),
       role: 'volunteer',
       status: 'active',
+      orgId: orgId,
       createdAt: DateTime.now(),
     );
 
@@ -45,6 +80,97 @@ class AuthService {
     // 4. Update display name in Firebase Auth
     await cred.user!.updateDisplayName(name.trim());
 
+    return user;
+  }
+
+  // ── Google Sign-In ──────────────────────────────────────────────
+  /// Signs in with Google. Returns the Firebase User credential.
+  /// Checks by both UID and email to support pre-created accounts.
+  /// If the user is new (no Firestore doc), returns null UserModel so
+  /// the caller can redirect to the post-Google signup form.
+  Future<({User firebaseUser, UserModel? profile, bool isNewUser})>
+      signInWithGoogle() async {
+    final googleUser = await GoogleSignIn().signIn();
+    if (googleUser == null) {
+      throw Exception('Google sign-in was cancelled.');
+    }
+
+    final googleAuth = await googleUser.authentication;
+    final credential = GoogleAuthProvider.credential(
+      accessToken: googleAuth.accessToken,
+      idToken: googleAuth.idToken,
+    );
+
+    final cred = await _auth.signInWithCredential(credential);
+    final uid = cred.user!.uid;
+    final email = cred.user!.email ?? '';
+
+    // 1. First check by UID (normal flow)
+    final docByUid = await _db.collection('users').doc(uid).get();
+    if (docByUid.exists) {
+      return (
+        firebaseUser: cred.user!,
+        profile: UserModel.fromMap(docByUid.data()!, uid),
+        isNewUser: false,
+      );
+    }
+
+    // 2. Check by email for pre-created accounts (e.g., super admin)
+    if (email.isNotEmpty) {
+      final docByEmail = await _db
+          .collection('users')
+          .where('email', isEqualTo: email)
+          .limit(1)
+          .get();
+
+      if (docByEmail.docs.isNotEmpty) {
+        final existingDoc = docByEmail.docs.first;
+        final userProfile = UserModel.fromMap(existingDoc.data(), existingDoc.id);
+
+        // Update the uid to match Firebase Auth UID for future logins (BLOCKING to prevent race condition)
+        try {
+          await _db.collection('users').doc(existingDoc.id).update({
+            'uid': uid,
+            'updatedAt': DateTime.now(),
+          });
+        } catch (e) {
+          // Silently fail if uid update doesn't work
+        }
+
+        return (
+          firebaseUser: cred.user!,
+          profile: userProfile,
+          isNewUser: false,
+        );
+      }
+    }
+
+    // 3. New Google user — no Firestore profile yet
+    return (
+      firebaseUser: cred.user!,
+      profile: null,
+      isNewUser: true,
+    );
+  }
+
+  /// Completes the profile for a Google-signed-in user (post-Google form).
+  Future<UserModel> completeGoogleSignUp({
+    required String uid,
+    required String name,
+    required String email,
+    required String orgId,
+  }) async {
+    final user = UserModel(
+      uid: uid,
+      name: name.trim(),
+      email: email.trim(),
+      role: 'volunteer',
+      status: 'active',
+      orgId: orgId,
+      createdAt: DateTime.now(),
+    );
+
+    await _db.collection('users').doc(uid).set(user.toMap());
     return user;
   }
 
@@ -64,12 +190,30 @@ class AuthService {
 
   // ── Get User Profile ────────────────────────────────────────────
   /// Reads the Firestore doc for the given uid.
+  /// Falls back to email lookup if uid not found (for pre-created accounts).
   Future<UserModel> getUserProfile(String uid) async {
+    // 1. Try by uid (normal case)
     final doc = await _db.collection('users').doc(uid).get();
-    if (!doc.exists) {
-      throw Exception('User profile not found in Firestore.');
+    if (doc.exists) {
+      return UserModel.fromMap(doc.data()!, uid);
     }
-    return UserModel.fromMap(doc.data()!, uid);
+
+    // 2. Fallback: Try by email from Firebase Auth (handles pre-created accounts)
+    final firebaseUser = _auth.currentUser;
+    if (firebaseUser?.email != null && firebaseUser!.email!.isNotEmpty) {
+      final emailQuery = await _db
+          .collection('users')
+          .where('email', isEqualTo: firebaseUser.email)
+          .limit(1)
+          .get();
+
+      if (emailQuery.docs.isNotEmpty) {
+        final emailDoc = emailQuery.docs.first;
+        return UserModel.fromMap(emailDoc.data(), emailDoc.id);
+      }
+    }
+
+    throw Exception('User profile not found in Firestore.');
   }
 
   // ── Sign Out ────────────────────────────────────────────────────

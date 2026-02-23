@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'auth/login_screen.dart';
 
 /// ───────────────────────────────────────────────────────────────
 /// LANDING / ONBOARDING PAGE — Sevadaar
@@ -120,14 +121,9 @@ class _LandingPageState extends State<LandingPage>
         curve: Curves.easeInOutCubic,
       );
     } else {
-      // TODO: navigate to auth / home
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Authentication coming soon!',
-            style: GoogleFonts.poppins(fontWeight: FontWeight.w500)),
-        backgroundColor: const Color(0xFF2E7D32),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ));
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+      );
     }
   }
 

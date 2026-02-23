@@ -1,0 +1,11 @@
+{
+  "name": "sevadaar-scripts",
+  "version": "1.0.0",
+  "description": "Developer scripts for Sevadaar NGO management app",
+  "scripts": {
+    "promote": "node promote_super_admin.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0"
+  }
+}

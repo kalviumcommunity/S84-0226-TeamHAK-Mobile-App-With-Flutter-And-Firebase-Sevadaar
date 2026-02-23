@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "311701115408-kmtu8umo6u3k88dn79t8jvpfemob481j.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.teamhak.sevadaar.sevadaar",
+            "certificate_hash": "aafa33c599b6f63398cd67f69809ed8976a3a0cb"
+          }
+        },
+        {
           "client_id": "311701115408-d46lvemvqnph70guopmf3dpem3706qh0.apps.googleusercontent.com",
           "client_type": 3
         }
