@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "311701115408",
+    "project_id": "sevadaar",
+    "storage_bucket": "sevadaar.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:311701115408:android:3056a0f7861ac1b1b23095",
+        "android_client_info": {
+          "package_name": "com.teamhak.sevadaar.sevadaar"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "311701115408-d46lvemvqnph70guopmf3dpem3706qh0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAKXjGU6_5kXIcQNeKzlv4dH0gse3I1d5o"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "311701115408-d46lvemvqnph70guopmf3dpem3706qh0.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
