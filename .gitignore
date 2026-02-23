@@ -49,6 +49,7 @@ app.*.map.json
 
 # Firebase service account key (NEVER commit secrets!)
 scripts/serviceAccountKey.json
+scripts/node_modules/
 
 # VS Code
 .vscode
