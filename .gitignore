@@ -46,3 +46,12 @@ app.*.map.json
 
 # Environment variables
 .env
+
+# Firebase service account key (NEVER commit secrets!)
+scripts/serviceAccountKey.json
+
+# VS Code
+.vscode
+
+# Scripts
+run_android.sh

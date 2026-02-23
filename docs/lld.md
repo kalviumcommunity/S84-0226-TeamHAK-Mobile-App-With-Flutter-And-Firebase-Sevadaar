@@ -1,8 +1,9 @@
 # 🏗️ Architecture Overview
 
-* **Frontend:** Flutter (Dart) using **Riverpod** or **BLoC** for state management.  
+* **Frontend:** Flutter (Dart) using **Riverpod** for state management.  
 * **Backend:** Firebase (Firestore for Database, Firebase Auth for Login, Cloud Functions for logic/triggers, Firebase Cloud Messaging (FCM) for Notifications).  
-* **Role Management:** Handled via Firestore `users` collection and Custom Claims (for secure backend access).
+* **Role Management:** Handled via Firestore `users` collection and role field (for dashboard routing).  
+* **NGO Scoping:** All data is scoped to a specific NGO via `orgId`. One user belongs to one NGO at a time.
 
 ---
 
@@ -10,7 +11,7 @@
 
 ### Collection: `users`
 
-Stores all profiles. Super Admin is pre-seeded manually.
+Stores all profiles. Super Admin is promoted via developer script.
 
 {
 
@@ -26,7 +27,55 @@ Stores all profiles. Super Admin is pre-seeded manually.
 
   "fcmToken": "token\_for\_push\_notifications",
 
+  "orgId": "ngo\_doc\_id", // nullable for super\_admin
+
   "createdAt": "timestamp"
+
+}
+
+### Collection: `ngos`
+
+Stores NGO/Organisation data. Created by Super Admin from within the app.
+
+{
+
+  "name": "Green Earth NGO",
+
+  "description": "We clean beaches and plant trees.",
+
+  "address": "Mumbai, India",
+
+  "contactEmail": "admin@greenearth.org",
+
+  "joinCode": "47392810", // 8-digit numeric, DB-unique
+
+  "superAdminId": "sa\_uid",
+
+  "createdAt": "timestamp"
+
+}
+
+### Collection: `ngo_applications`
+
+Submitted by users who want Super Admin access for their NGO.
+
+{
+
+  "applicantName": "Ramesh Kumar",
+
+  "applicantEmail": "ramesh@gmail.com",
+
+  "ngoName": "Green Earth NGO",
+
+  "ngoDescription": "We clean beaches...",
+
+  "ngoAddress": "Mumbai, India",
+
+  "ngoPhone": "9876543210",
+
+  "status": "pending", // "pending", "approved", "rejected"
+
+  "submittedAt": "timestamp"
 
 }
 
@@ -261,9 +310,13 @@ lib/
 
 │
 
-├── models/              \# Data models (User, Task, Chat, ProgressRequest)
+├── models/              \# Data models
 
 │   ├── user\_model.dart
+
+│   ├── ngo\_model.dart
+
+│   ├── ngo\_application\_model.dart
 
 │   ├── task\_model.dart
 
@@ -273,7 +326,9 @@ lib/
 
 ├── services/
 
-│   ├── auth\_service.dart      \# Firebase Auth login/logout
+│   ├── auth\_service.dart      \# Firebase Auth login/logout/Google Sign-In
+
+│   ├── ngo\_service.dart       \# NGO CRUD, join code gen, application submit
 
 │   ├── db\_service.dart        \# Firestore queries (Transactions, updates)
 
@@ -281,7 +336,7 @@ lib/
 
 │
 
-├── state/               \# Providers/Blocs
+├── state/               \# Riverpod Providers
 
 │   ├── auth\_provider.dart     \# Manages current user state & role
 
@@ -291,27 +346,41 @@ lib/
 
 │
 
-├── ui/
+├── screens/
 
-│   ├── screens/
+│   ├── splash\_screen.dart
 
-│   │   ├── auth/              \# Login, Register
+│   ├── landing\_page.dart
 
-│   │   ├── super\_admin/       \# SA Dashboard, Manage Admins, SA Tasks
+│   ├── role\_router.dart       \# Routes to correct dashboard by role
 
-│   │   ├── admin/             \# Admin Dashboard, Create Task, Review Progress
+│   ├── auth/
 
-│   │   ├── volunteer/         \# Volunteer Dashboard, Task Invites, Submit Progress
+│   │   ├── login\_screen.dart
 
-│   │   └── chat/              \# Chat List, Chat Room (Input disabled if isArchived)
+│   │   ├── signup\_screen.dart
 
-│   │
+│   │   ├── google\_signup\_form\_screen.dart
 
-│   └── widgets/               \# Reusable widgets (TaskCard, ProgressBar, StatusToggle)
+│   │   └── ngo\_application\_screen.dart
+
+│   ├── super\_admin/       \# SA Dashboard, Create NGO, Manage Admins
+
+│   ├── admin/             \# Admin Dashboard, Create Task, Review Progress
+
+│   ├── volunteer/         \# Volunteer Dashboard, Task Invites, Submit Progress
+
+│   └── chat/              \# Chat List, Chat Room
 
 │
 
 └── main.dart
+
+scripts/
+
+├── promote\_super\_admin.js  \# Node.js script to promote a user to super\_admin
+
+└── package.json
 
 ---
 
@@ -331,9 +400,42 @@ To ensure users can't hack the system:
 
 # 🚀 Next Steps for Development
 
-1. **Setup Firebase:** Create the project, enable Auth (Email/Password), Firestore, and Storage.  
-2. **Seed the Super Admin:** Manually add your first user into Firestore and give them `"role": "super_admin"`.  
-3. **Build Auth Flow:** Create the Flutter login screens and route the user to the correct Dashboard based on their `role` fetched from Firestore.  
-4. **Develop Admin/Volunteer Task UI:** Build the FCFS assignment flow first without the math.  
-5. **Implement Progress Math:** Add the approval workflow and dynamic progress recalculations.  
-6. **Integrate Chat & Notifications:** Add the auto-group creation and FCM notifications.
+1. ~~**Setup Firebase:** Create the project, enable Auth (Email/Password + Google), Firestore, and Storage.~~ ✅  
+2. ~~**Build Auth Flow:** Login, Signup, Google Sign-In, NGO Application, Role Router.~~ ✅  
+3. ~~**Create promote script:** Node.js script to promote a user to Super Admin.~~ ✅  
+4. **Build Super Admin Dashboard:** Create NGO, view join codes, manage admins.  
+5. **Develop Admin/Volunteer Task UI:** Build the FCFS assignment flow.  
+6. **Implement Progress Math:** Add the approval workflow and dynamic progress recalculations.  
+7. **Integrate Chat & Notifications:** Add the auto-group creation and FCM notifications.
+
+---
+
+# 🔐 Auth & Onboarding Flow
+
+```
+SplashScreen
+  └─► LandingPage ("Get Started")
+        └─► LoginScreen
+              ├─► SignupScreen (name + email + password + 8-digit NGO code)
+              │     └─► "Have an NGO? Become a Super Admin" ──► NgoApplicationScreen → Success
+              │     └─► on signup success ──► RoleRouter
+              │
+              ├─► Google Sign-In
+              │     ├─► (returning user) ──► RoleRouter
+              │     └─► (new user) ──► GoogleSignupFormScreen (name + NGO code) ──► RoleRouter
+              │
+              └─► "Have an NGO? Become a Super Admin" ──► NgoApplicationScreen
+
+RoleRouter ──► super_admin ──► SuperAdminDashboard
+           ──► admin       ──► AdminDashboard
+           ──► volunteer   ──► VolunteerDashboard
+```
+
+### Super Admin Promotion Flow
+
+1. Person fills NgoApplicationScreen → saved to Firestore `ngo_applications` + auto-email sent via EmailJS.
+2. Developer verifies the NGO is legit.
+3. Developer runs: `cd scripts && node promote_super_admin.js --email user@example.com`
+4. Script sets their Firestore `role` to `"super_admin"`.
+5. Developer emails them their login info.
+6. They log in → RoleRouter → SuperAdminDashboard → they can create NGOs and get join codes.

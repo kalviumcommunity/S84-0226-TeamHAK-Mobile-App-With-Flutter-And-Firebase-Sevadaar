@@ -8,6 +8,7 @@ class UserModel {
   final String role; // "super_admin", "admin", "volunteer"
   final String status; // "active", "inactive"
   final String fcmToken;
+  final String? orgId; // The NGO/org this user belongs to (null for super_admin)
   final DateTime createdAt;
 
   const UserModel({
@@ -17,6 +18,7 @@ class UserModel {
     this.role = 'volunteer',
     this.status = 'active',
     this.fcmToken = '',
+    this.orgId,
     required this.createdAt,
   });
 
@@ -29,6 +31,7 @@ class UserModel {
       role: map['role'] ?? 'volunteer',
       status: map['status'] ?? 'active',
       fcmToken: map['fcmToken'] ?? '',
+      orgId: map['orgId'],
       createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
@@ -42,6 +45,7 @@ class UserModel {
       'role': role,
       'status': status,
       'fcmToken': fcmToken,
+      'orgId': orgId,
       'createdAt': Timestamp.fromDate(createdAt),
     };
   }
@@ -52,6 +56,7 @@ class UserModel {
     String? role,
     String? status,
     String? fcmToken,
+    String? orgId,
   }) {
     return UserModel(
       uid: uid,
@@ -60,6 +65,7 @@ class UserModel {
       role: role ?? this.role,
       status: status ?? this.status,
       fcmToken: fcmToken ?? this.fcmToken,
+      orgId: orgId ?? this.orgId,
       createdAt: createdAt,
     );
   }
