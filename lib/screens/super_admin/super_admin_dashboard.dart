@@ -32,7 +32,9 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
         return StatefulBuilder(
           builder: (ctx, setDialogState) {
             return AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
               title: Text(
                 'Create New NGO',
                 style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
@@ -52,7 +54,8 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                        validator: (v) =>
+                            (v == null || v.trim().isEmpty) ? 'Required' : null,
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
@@ -65,7 +68,8 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                        validator: (v) =>
+                            (v == null || v.trim().isEmpty) ? 'Required' : null,
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
@@ -77,7 +81,8 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                        validator: (v) =>
+                            (v == null || v.trim().isEmpty) ? 'Required' : null,
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
@@ -90,7 +95,8 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                        validator: (v) =>
+                            (v == null || v.trim().isEmpty) ? 'Required' : null,
                       ),
                     ],
                   ),
@@ -124,7 +130,9 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
                             setDialogState(() => loading = false);
                             if (ctx.mounted) {
                               ScaffoldMessenger.of(ctx).showSnackBar(
-                                SnackBar(content: Text('Error: ${e.toString()}')),
+                                SnackBar(
+                                  content: Text('Error: ${e.toString()}'),
+                                ),
                               );
                             }
                           }
@@ -185,7 +193,9 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
               onTap: () {
                 Clipboard.setData(ClipboardData(text: joinCode));
                 ScaffoldMessenger.of(ctx).showSnackBar(
-                  const SnackBar(content: Text('Join code copied to clipboard!')),
+                  const SnackBar(
+                    content: Text('Join code copied to clipboard!'),
+                  ),
                 );
               },
               child: Container(
@@ -241,6 +251,9 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final today = '${now.day}/${now.month}/${now.year}';
+
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
@@ -274,6 +287,41 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Search Bar
+            Container(
+              margin: const EdgeInsets.only(bottom: 24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: TextField(
+                decoration: InputDecoration(
+                  hintText: 'Search NGOs, users...',
+                  hintStyle: GoogleFonts.poppins(
+                    color: Colors.grey.shade400,
+                    fontSize: 16,
+                  ),
+                  prefixIcon: Icon(Icons.search, color: Colors.grey.shade400),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 16,
+                  ),
+                ),
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  color: const Color(0xFF2D3142),
+                ),
+              ),
+            ),
+
             // Welcome Card
             Container(
               width: double.infinity,
@@ -287,9 +335,9 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF9298F0).withValues(alpha: 0.3),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
+                    color: const Color(0xFF9298F0).withOpacity(0.15),
+                    blurRadius: 15,
+                    offset: const Offset(0, 8),
                   ),
                 ],
               ),
@@ -301,48 +349,140 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
+                          color: Colors.white.withOpacity(0.2),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.admin_panel_settings, color: Colors.white),
+                        child: const Icon(
+                          Icons.admin_panel_settings,
+                          color: Colors.white,
+                        ),
                       ),
                       const SizedBox(width: 16),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Welcome back,',
-                            style: GoogleFonts.poppins(
-                              color: Colors.white.withValues(alpha: 0.8),
-                              fontSize: 14,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Welcome back,',
+                              style: GoogleFonts.poppins(
+                                color: Colors.white.withOpacity(0.6),
+                                fontSize: 14,
+                              ),
                             ),
-                          ),
-                          Text(
-                            'Super Admin',
-                            style: GoogleFonts.poppins(
-                              color: Colors.white,
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
+                            Text(
+                              'Super Admin',
+                              style: GoogleFonts.poppins(
+                                color: Colors.white,
+                                fontSize: 30,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 4),
+                            Text(
+                              today,
+                              style: GoogleFonts.poppins(
+                                color: Colors.white.withOpacity(0.7),
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 24),
                   Row(
                     children: [
-                      _buildStatBadge('Total NGOs', '24'),
+                      _buildStatBadge('Total NGOs', '24', '+3 this week', true),
                       const SizedBox(width: 16),
-                      _buildStatBadge('Pending Apps', '12'),
+                      _buildStatBadge('Pending Apps', '12', '-2 today', false),
                     ],
                   ),
                 ],
               ),
             ),
-            
+
             const SizedBox(height: 32),
-            
+
+            // Mini Analytics Section
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Weekly Overview',
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF2D3142),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          children: [
+                            Text(
+                              'NGOs Registered',
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: List.generate(
+                                7,
+                                (index) => Container(
+                                  width: 8,
+                                  height: 32,
+                                  margin: const EdgeInsets.symmetric(
+                                    horizontal: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: index < 5
+                                        ? const Color(0xFF9298F0)
+                                        : Colors.grey.shade200,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '5 this week',
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                color: const Color(0xFF2D3142),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 32),
+
             // Section Title
             Text(
               'Quick Actions',
@@ -353,7 +493,8 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
               ),
             ),
             const SizedBox(height: 16),
-            
+
+            // Actions Grid
             // Actions Grid
             GridView.count(
               shrinkWrap: true,
@@ -361,7 +502,8 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
               crossAxisCount: 2,
               crossAxisSpacing: 16,
               mainAxisSpacing: 16,
-              childAspectRatio: 1.5,
+              // Lowered from 1.8 to 1.2 to give the cards more height so text doesn't cut off
+              childAspectRatio: 1.2,
               children: [
                 _buildActionCard(
                   'Approve NGOs',
@@ -369,13 +511,14 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
                   Icons.verified_outlined,
                   const Color(0xFF4CAF50),
                   () {},
+                  badgeCount: 12,
                 ),
                 _buildActionCard(
                   'Create NGO',
                   'Add manually',
                   Icons.add_business_outlined,
-                  const Color(0xFF9298F0),
-                  _showCreateNgoDialog,
+                  const Color(0xFF2196F3),
+                  _showCreateNgoDialog, // Functionality remains 100% intact!
                 ),
                 _buildActionCard(
                   'Manage Users',
@@ -388,14 +531,14 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
                   'Reports',
                   'System analytics',
                   Icons.analytics_outlined,
-                  const Color(0xFFEF5350),
+                  const Color(0xFF9C27B0),
                   () {},
                 ),
               ],
             ),
-            
+
             const SizedBox(height: 32),
-            
+
             // Recent Activity Placeholder
             Text(
               'Recent Activity',
@@ -406,20 +549,42 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
               ),
             ),
             const SizedBox(height: 16),
-            _buildActivityItem('New application from "Helping Hands"', '2 mins ago'),
-            _buildActivityItem('NGO "Green Earth" verified', '1 hour ago'),
-            _buildActivityItem('System maintenance scheduled', '1 day ago'),
+            _buildActivityGroup('Today', [
+              _buildActivityItem(
+                'New application from "Helping Hands"',
+                '2 mins ago',
+                'H',
+              ),
+              _buildActivityItem(
+                'NGO "Green Earth" verified',
+                '1 hour ago',
+                'G',
+              ),
+            ]),
+            const SizedBox(height: 16),
+            _buildActivityGroup('Yesterday', [
+              _buildActivityItem(
+                'System maintenance scheduled',
+                '1 day ago',
+                'S',
+              ),
+            ]),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildStatBadge(String label, String value) {
+  Widget _buildStatBadge(
+    String label,
+    String value,
+    String trend,
+    bool isPositive,
+  ) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.2),
+        color: Colors.white.withOpacity(0.2),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -430,75 +595,156 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
             style: GoogleFonts.poppins(
               color: Colors.white,
               fontWeight: FontWeight.bold,
-              fontSize: 18,
+              fontSize: 24,
             ),
           ),
           Text(
             label,
             style: GoogleFonts.poppins(
-              color: Colors.white.withValues(alpha: 0.8),
+              color: Colors.white.withOpacity(0.8),
               fontSize: 12,
             ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Icon(
+                isPositive ? Icons.trending_up : Icons.trending_down,
+                color: isPositive ? Colors.green.shade300 : Colors.red.shade300,
+                size: 14,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                trend,
+                style: GoogleFonts.poppins(
+                  color: isPositive
+                      ? Colors.green.shade300
+                      : Colors.red.shade300,
+                  fontSize: 10,
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildActionCard(String title, String subtitle, IconData icon, Color color, VoidCallback onTap) {
+  Widget _buildActionCard(
+    String title,
+    String subtitle,
+    IconData icon,
+    Color color,
+    VoidCallback onTap, {
+    int? badgeCount,
+  }) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 5),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
+      child: AnimatedScale(
+        scale: 1.0,
+        duration: const Duration(milliseconds: 100),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 5),
               ),
-              child: Icon(icon, color: color, size: 24),
-            ),
-            const Spacer(),
-            Text(
-              title,
-              style: GoogleFonts.poppins(
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF2D3142),
-                fontSize: 14,
+            ],
+          ),
+          child: Stack(
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(icon, color: color, size: 28),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    title,
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF2D3142),
+                      fontSize: 14,
+                    ),
+                    softWrap: true,
+                    maxLines: 2,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.poppins(
+                      color: Colors.grey.shade500,
+                      fontSize: 12,
+                    ),
+                    softWrap: true,
+                    maxLines: 2,
+                  ),
+                ],
               ),
-            ),
-            Text(
-              subtitle,
-              style: GoogleFonts.poppins(
-                color: Colors.grey.shade500,
-                fontSize: 12,
-              ),
-            ),
-          ],
+              if (badgeCount != null && badgeCount > 0)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: color,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      badgeCount.toString(),
+                      style: GoogleFonts.poppins(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildActivityItem(String title, String time) {
+  Widget _buildActivityGroup(String title, List<Widget> items) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey.shade600,
+          ),
+        ),
+        const SizedBox(height: 8),
+        ...items,
+      ],
+    );
+  }
+
+  Widget _buildActivityItem(String title, String time, String avatarLetter) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -507,12 +753,16 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
       ),
       child: Row(
         children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: const BoxDecoration(
-              color: Color(0xFF9298F0),
-              shape: BoxShape.circle,
+          CircleAvatar(
+            radius: 16,
+            backgroundColor: const Color(0xFF9298F0).withOpacity(0.1),
+            child: Text(
+              avatarLetter,
+              style: GoogleFonts.poppins(
+                color: const Color(0xFF9298F0),
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
             ),
           ),
           const SizedBox(width: 16),
