@@ -6,6 +6,8 @@ import 'auth/login_screen.dart';
 import 'super_admin/super_admin_dashboard.dart';
 import 'admin/admin_dashboard.dart';
 import 'volunteer/volunteer_dashboard.dart';
+import 'volunteer/no_ngo_dashboard.dart';
+import 'developer_admin/developer_admin_dashboard.dart';
 import 'landing_page.dart';
 
 /// ───────────────────────────────────────────────────────────────
@@ -42,6 +44,9 @@ class _RoleRouterState extends State<RoleRouter> {
       if (!mounted) return;
 
       switch (profile.role) {
+        case 'developer_admin':
+          _goTo(const DeveloperAdminDashboard());
+          break;
         case 'super_admin':
           _goTo(const SuperAdminDashboard());
           break;
@@ -50,7 +55,12 @@ class _RoleRouterState extends State<RoleRouter> {
           break;
         case 'volunteer':
         default:
-          _goTo(const VolunteerDashboard());
+          // If volunteer has no NGO assigned, show the no-NGO dashboard
+          if (profile.ngoId == null || profile.ngoId!.isEmpty) {
+            _goTo(const NoNgoDashboard());
+          } else {
+            _goTo(const VolunteerDashboard());
+          }
           break;
       }
     } catch (e) {

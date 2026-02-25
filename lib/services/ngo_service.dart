@@ -162,4 +162,43 @@ class NgoService {
         .map((snap) =>
             snap.docs.map((d) => NgoModel.fromMap(d.data(), d.id)).toList());
   }
+
+  // ── Validate NGO Code ───────────────────────────────────────────
+  /// Looks up an NGO by join code (alias for validateJoinCode).
+  Future<NgoModel?> validateNgoCode(String code) async {
+    return validateJoinCode(code);
+  }
+
+  // ── Create NGO from Developer Admin Approval ────────────────────
+  /// Creates an NGO when a developer admin approves an NGO request.
+  /// Uses a simplified model with just name + registration number.
+  Future<NgoModel> createNgoFromRequest({
+    required String name,
+    required String registrationNumber,
+    required String superAdminId,
+  }) async {
+    final joinCode = await generateUniqueCode();
+    final docRef = _db.collection('ngos').doc();
+
+    final ngo = NgoModel(
+      ngoId: docRef.id,
+      name: name.trim(),
+      description: '',
+      address: '',
+      contactEmail: '',
+      joinCode: joinCode,
+      superAdminId: superAdminId,
+      createdAt: DateTime.now(),
+    );
+
+    await docRef.set(ngo.toMap());
+    return ngo;
+  }
+
+  // ── Get NGO by ID ──────────────────────────────────────────────
+  Future<NgoModel?> getNgoById(String ngoId) async {
+    final doc = await _db.collection('ngos').doc(ngoId).get();
+    if (!doc.exists) return null;
+    return NgoModel.fromMap(doc.data()!, doc.id);
+  }
 }

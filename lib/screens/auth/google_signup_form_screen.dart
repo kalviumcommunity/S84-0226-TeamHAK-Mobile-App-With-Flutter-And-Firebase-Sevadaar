@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../services/auth_service.dart';
-import '../../services/ngo_service.dart';
 import '../role_router.dart';
 
-/// Clean post-Google signup form
+/// Clean post-Google signup form — NGO code is OPTIONAL.
 class GoogleSignupFormScreen extends StatefulWidget {
   final User firebaseUser;
   const GoogleSignupFormScreen({super.key, required this.firebaseUser});
@@ -20,7 +19,6 @@ class _GoogleSignupFormScreenState extends State<GoogleSignupFormScreen> {
   final _formKey = GlobalKey<FormState>();
 
   final _authService = AuthService();
-  final _ngoService = NgoService();
 
   bool _loading = false;
   String? _error;
@@ -45,20 +43,13 @@ class _GoogleSignupFormScreenState extends State<GoogleSignupFormScreen> {
       _error = null;
     });
     try {
-      final ngo = await _ngoService.validateJoinCode(_codeCtrl.text.trim());
-      if (ngo == null) {
-        setState(() {
-          _error = 'Invalid NGO code. Please check and try again.';
-          _loading = false;
-        });
-        return;
-      }
+      final code = _codeCtrl.text.trim();
 
       await _authService.completeGoogleSignUp(
         uid: widget.firebaseUser.uid,
         name: _nameCtrl.text,
         email: widget.firebaseUser.email ?? '',
-        orgId: ngo.ngoId,
+        ngoCode: code.isEmpty ? null : code,
       );
 
       if (!mounted) return;
@@ -208,11 +199,11 @@ class _GoogleSignupFormScreenState extends State<GoogleSignupFormScreen> {
                           ),
                           const SizedBox(height: 16),
 
-                          // NGO Code field
+                          // NGO Code field (OPTIONAL)
                           TextFormField(
                             controller: _codeCtrl,
                             decoration: InputDecoration(
-                              labelText: 'NGO Code (8 digits)',
+                              labelText: 'NGO Code (Optional)',
                               filled: true,
                               fillColor: const Color(0xFFF5F5F5),
                               border: OutlineInputBorder(
@@ -227,7 +218,7 @@ class _GoogleSignupFormScreenState extends State<GoogleSignupFormScreen> {
                                 color: Colors.grey.shade600,
                                 fontSize: 15,
                               ),
-                              helperText: 'Ask your NGO admin for the code',
+                              helperText: 'Leave empty if you don\'t have one yet',
                               helperStyle: GoogleFonts.poppins(
                                 fontSize: 12,
                                 color: Colors.grey.shade500,
@@ -237,9 +228,11 @@ class _GoogleSignupFormScreenState extends State<GoogleSignupFormScreen> {
                             style: GoogleFonts.poppins(fontSize: 15),
                             maxLength: 8,
                             validator: (v) {
-                              if (v?.isEmpty ?? true) return 'Enter NGO code';
-                              if (v!.length != 8) return 'Code must be 8 digits';
-                              if (!RegExp(r'^\d+$').hasMatch(v)) {
+                              if (v == null || v.trim().isEmpty) return null;
+                              if (v.trim().length != 8) {
+                                return 'Code must be 8 digits';
+                              }
+                              if (!RegExp(r'^\d+$').hasMatch(v.trim())) {
                                 return 'Only numbers allowed';
                               }
                               return null;
