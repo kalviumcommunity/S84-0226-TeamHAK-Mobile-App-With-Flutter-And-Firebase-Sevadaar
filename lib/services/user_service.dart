@@ -46,4 +46,22 @@ class UserService {
       return UserModel.fromMap(doc.data()!, uid);
     });
   }
+
+  /// Stream all members belonging to a specific NGO.
+  Stream<List<UserModel>> streamNgoMembers(String ngoId) {
+    return _db
+        .collection('users')
+        .where('ngoId', isEqualTo: ngoId)
+        .snapshots()
+        .map((snap) =>
+            snap.docs.map((d) => UserModel.fromMap(d.data(), d.id)).toList());
+  }
+
+  /// Promote a volunteer to Admin for their NGO.
+  Future<void> promoteToAdmin(String uid) async =>
+      await _db.collection('users').doc(uid).update({'role': 'admin'});
+
+  /// Demote an Admin back to Volunteer.
+  Future<void> demoteToVolunteer(String uid) async =>
+      await _db.collection('users').doc(uid).update({'role': 'volunteer'});
 }

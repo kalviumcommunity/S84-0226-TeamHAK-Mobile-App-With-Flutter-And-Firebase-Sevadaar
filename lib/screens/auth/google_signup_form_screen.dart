@@ -22,6 +22,7 @@ class _GoogleSignupFormScreenState extends State<GoogleSignupFormScreen> {
 
   bool _loading = false;
   String? _error;
+  String _selectedRole = 'volunteer'; // NEW: role selector
 
   @override
   void initState() {
@@ -50,6 +51,7 @@ class _GoogleSignupFormScreenState extends State<GoogleSignupFormScreen> {
         name: _nameCtrl.text,
         email: widget.firebaseUser.email ?? '',
         ngoCode: code.isEmpty ? null : code,
+        role: _selectedRole, // NEW: pass user's role selection
       );
 
       if (!mounted) return;
@@ -237,6 +239,57 @@ class _GoogleSignupFormScreenState extends State<GoogleSignupFormScreen> {
                               }
                               return null;
                             },
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Role selector dropdown — NEW
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF5F5F5),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey.shade300),
+                            ),
+                            child: DropdownButton<String>(
+                              isExpanded: true,
+                              value: _selectedRole,
+                              underline: const SizedBox(),
+                              items: const [
+                                DropdownMenuItem(
+                                  value: 'volunteer',
+                                  child: Text('Volunteer'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'admin',
+                                  child: Text('Admin (NGO Lead)'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'super_admin',
+                                  child: Text('Super Admin'),
+                                ),
+                              ],
+                              onChanged: (value) {
+                                if (value != null) {
+                                  setState(() => _selectedRole = value);
+                                }
+                              },
+                              style: GoogleFonts.poppins(
+                                fontSize: 15,
+                                color: Colors.black,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Select your role. Super Admins can create and manage NGOs.',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                              fontStyle: FontStyle.italic,
+                            ),
                           ),
                           const SizedBox(height: 32),
 
