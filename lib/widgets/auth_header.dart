@@ -61,7 +61,7 @@ class _HeaderPainter extends CustomPainter {
 
     // Draw illustrations (lamps, clock, plant)
     final illustrationPaint = Paint()
-      ..color = Colors.white.withOpacity(0.15)
+      ..color = Colors.white.withValues(alpha: 0.15)
       ..style = PaintingStyle.fill;
 
     // Lamp 1 (Left)
@@ -82,7 +82,7 @@ class _HeaderPainter extends CustomPainter {
     canvas.drawCircle(Offset(size.width * 0.78, size.height * 0.15), 30, illustrationPaint);
     // Clock hands
     final handsPaint = Paint()
-      ..color = Colors.white.withOpacity(0.3)
+      ..color = Colors.white.withValues(alpha: 0.3)
       ..strokeWidth = 2
       ..strokeCap = StrokeCap.round;
     canvas.drawLine(Offset(size.width * 0.78, size.height * 0.15), Offset(size.width * 0.78, size.height * 0.15 - 15), handsPaint);

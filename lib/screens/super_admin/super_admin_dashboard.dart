@@ -295,7 +295,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 12,
                     offset: const Offset(0, 4),
                   ),
@@ -335,7 +335,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF9298F0).withOpacity(0.15),
+                    color: const Color(0xFF9298F0).withValues(alpha: 0.15),
                     blurRadius: 15,
                     offset: const Offset(0, 8),
                   ),
@@ -349,7 +349,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
+                          color: Colors.white.withValues(alpha: 0.2),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
@@ -365,7 +365,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
                             Text(
                               'Welcome back,',
                               style: GoogleFonts.poppins(
-                                color: Colors.white.withOpacity(0.6),
+                                color: Colors.white.withValues(alpha: 0.6),
                                 fontSize: 14,
                               ),
                             ),
@@ -381,7 +381,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
                             Text(
                               today,
                               style: GoogleFonts.poppins(
-                                color: Colors.white.withOpacity(0.7),
+                                color: Colors.white.withValues(alpha: 0.7),
                                 fontSize: 12,
                               ),
                             ),
@@ -413,7 +413,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -584,7 +584,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.2),
+        color: Colors.white.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -601,7 +601,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
           Text(
             label,
             style: GoogleFonts.poppins(
-              color: Colors.white.withOpacity(0.8),
+              color: Colors.white.withValues(alpha: 0.8),
               fontSize: 12,
             ),
           ),
@@ -651,7 +651,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withValues(alpha: 0.05),
                 blurRadius: 10,
                 offset: const Offset(0, 5),
               ),
@@ -666,7 +666,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: color.withOpacity(0.1),
+                      color: color.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(icon, color: color, size: 28),
@@ -755,7 +755,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
         children: [
           CircleAvatar(
             radius: 16,
-            backgroundColor: const Color(0xFF9298F0).withOpacity(0.1),
+            backgroundColor: const Color(0xFF9298F0).withValues(alpha: 0.1),
             child: Text(
               avatarLetter,
               style: GoogleFonts.poppins(

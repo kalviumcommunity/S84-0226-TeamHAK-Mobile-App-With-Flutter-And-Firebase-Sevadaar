@@ -109,7 +109,7 @@ class _JoinNgoScreenState extends State<JoinNgoScreen> {
                 height: 100,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: const Color(0xFF6A74F8).withOpacity(0.1),
+                  color: const Color(0xFF6A74F8).withValues(alpha: 0.1),
                 ),
                 child: const Icon(
                   Icons.login_rounded,
@@ -176,7 +176,7 @@ class _JoinNgoScreenState extends State<JoinNgoScreen> {
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 20,
                       offset: const Offset(0, 10),
                     ),
