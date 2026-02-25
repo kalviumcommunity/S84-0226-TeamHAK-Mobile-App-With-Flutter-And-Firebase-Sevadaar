@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../models/task_model.dart';
 import '../../models/progress_request_model.dart';
@@ -10,26 +11,44 @@ import '../auth/login_screen.dart';
 import 'create_task_screen.dart';
 import 'task_detail_screen.dart';
 
-// ── Urgency colour helper ─────────────────────────────────────────
+// ─── Design Tokens ────────────────────────────────────────────────────────────
+class _C {
+  static const bg = Color(0xFF06110B);
+  static const bgMid = Color(0xFF091A10);
+  static const surface = Color(0xFF0E2419);
+  static const surface2 = Color(0xFF122D1C);
+  static const blue = Color(0xFF42A5F5);
+  static const blueDeep = Color(0xFF1565C0);
+  static const green = Color(0xFF4CAF50);
+  static const orange = Color(0xFFFF9800);
+  static const red = Color(0xFFF44336);
+  static const textPri = Colors.white;
+  static const textSec = Color(0x99FFFFFF); // white 60%
+  static const textTer = Color(0x4DFFFFFF); // white 30%
+  static const divider = Color(0x14FFFFFF); // white 8%
+}
+
+// ─── Urgency colour helper ────────────────────────────────────────────────────
 Color taskUrgencyColor(DateTime createdAt, DateTime deadline) {
   final now = DateTime.now();
   final total = deadline.difference(createdAt).inMinutes;
   final remaining = deadline.difference(now).inMinutes;
-  if (remaining <= 0 || total <= 0) return const Color(0xFFF44336);
+  if (remaining <= 0 || total <= 0) return _C.red;
   final pct = (remaining / total) * 100;
-  if (pct > 50) return const Color(0xFF4CAF50);
-  if (pct > 30) return const Color(0xFFFF9800);
-  return const Color(0xFFF44336);
+  if (pct > 50) return _C.green;
+  if (pct > 30) return _C.orange;
+  return _C.red;
 }
 
+// ─── Root Dashboard ───────────────────────────────────────────────────────────
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
-
   @override
   State<AdminDashboard> createState() => _AdminDashboardState();
 }
 
-class _AdminDashboardState extends State<AdminDashboard> {
+class _AdminDashboardState extends State<AdminDashboard>
+    with TickerProviderStateMixin {
   final _auth = AuthService();
   final _taskService = TaskService();
   final _userService = UserService();
@@ -38,17 +57,37 @@ class _AdminDashboardState extends State<AdminDashboard> {
   UserModel? _currentUser;
   bool _loadingUser = true;
 
+  late AnimationController _fadeCtrl;
+  late Animation<double> _fadeAnim;
+
   @override
   void initState() {
     super.initState();
+    _fadeCtrl = AnimationController(
+      duration: const Duration(milliseconds: 500),
+      vsync: this,
+    );
+    _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut);
     _loadCurrentUser();
+  }
+
+  @override
+  void dispose() {
+    _fadeCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _loadCurrentUser() async {
     try {
       final uid = _auth.currentUser?.uid ?? '';
       final profile = await _auth.getUserProfile(uid);
-      if (mounted) setState(() { _currentUser = profile; _loadingUser = false; });
+      if (mounted) {
+        setState(() {
+          _currentUser = profile;
+          _loadingUser = false;
+        });
+        _fadeCtrl.forward();
+      }
     } catch (_) {
       if (mounted) setState(() => _loadingUser = false);
     }
@@ -58,113 +97,179 @@ class _AdminDashboardState extends State<AdminDashboard> {
   Widget build(BuildContext context) {
     if (_loadingUser) {
       return const Scaffold(
-        backgroundColor: Color(0xFF06110B),
-        body: Center(child: CircularProgressIndicator(color: Color(0xFF42A5F5))),
+        backgroundColor: _C.bg,
+        body: Center(child: _PulseLoader()),
       );
     }
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF06110B),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF0E2419), Color(0xFF091A10), Color(0xFF06110B)],
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+      ),
+      child: Scaffold(
+        backgroundColor: _C.bg,
+        extendBody: true,
+        body: FadeTransition(
+          opacity: _fadeAnim,
+          child: _DarkGradientBg(
+            child: _selectedTab == 0
+                ? _TasksTab(
+                    currentUser: _currentUser,
+                    taskService: _taskService,
+                    userService: _userService,
+                  )
+                : _RequestsTab(
+                    currentUser: _currentUser,
+                    taskService: _taskService,
+                    userService: _userService,
+                  ),
           ),
         ),
-        child: _selectedTab == 0
-            ? _TasksTab(
-                currentUser: _currentUser,
-                taskService: _taskService,
-                userService: _userService,
-              )
-            : _RequestsTab(
-                currentUser: _currentUser,
-                taskService: _taskService,
-                userService: _userService,
-              ),
-      ),
-      bottomNavigationBar: _buildBottomNav(),
-      floatingActionButton: _selectedTab == 0
-          ? FloatingActionButton(
-              backgroundColor: const Color(0xFF42A5F5),
-              onPressed: () {
-                if (_currentUser == null) return;
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => CreateTaskScreen(
-                      adminId: _currentUser!.uid,
-                      ngoId: _currentUser!.ngoId ?? '',
-                    ),
+        bottomNavigationBar: _BottomNav(
+          selected: _selectedTab,
+          pendingBadge: _currentUser != null
+              ? StreamBuilder<List<ProgressRequestModel>>(
+                  stream: _taskService.streamPendingRequestsForAdmin(
+                    _currentUser!.uid,
                   ),
-                );
-              },
-              child: const Icon(Icons.add_rounded, color: Colors.white),
-            )
-          : null,
+                  builder: (_, snap) => snap.data?.isNotEmpty == true
+                      ? Container(
+                          width: 7,
+                          height: 7,
+                          decoration: const BoxDecoration(
+                            color: _C.red,
+                            shape: BoxShape.circle,
+                          ),
+                        )
+                      : const SizedBox.shrink(),
+                )
+              : null,
+          onTab: (i) {
+            if (i == 2) {
+              _confirmSignOut();
+              return;
+            }
+            setState(() => _selectedTab = i);
+          },
+        ),
+        floatingActionButton: _selectedTab == 0
+            ? _FAB(
+                onTap: () {
+                  if (_currentUser == null) return;
+                  Navigator.push(
+                    context,
+                    _fadeRoute(
+                      CreateTaskScreen(
+                        adminId: _currentUser!.uid,
+                        ngoId: _currentUser!.ngoId ?? '',
+                      ),
+                    ),
+                  );
+                },
+              )
+            : null,
+      ),
     );
   }
 
-  Widget _buildBottomNav() {
+  Future<void> _confirmSignOut() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => _DarkDialog(
+        title: 'Sign Out?',
+        body: 'You will be returned to the login screen.',
+        confirmLabel: 'Sign Out',
+        confirmColor: _C.red,
+        onConfirm: () => Navigator.pop(ctx, true),
+        onCancel: () => Navigator.pop(ctx, false),
+      ),
+    );
+    if (ok != true || !mounted) return;
+    await _auth.signOut();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (_) => false,
+    );
+  }
+}
+
+// ─── Background gradient wrapper ─────────────────────────────────────────────
+class _DarkGradientBg extends StatelessWidget {
+  final Widget child;
+  const _DarkGradientBg({required this.child});
+  @override
+  Widget build(BuildContext context) => Container(
+    decoration: const BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xFF0E2419), Color(0xFF091A10), Color(0xFF06110B)],
+        stops: [0.0, 0.5, 1.0],
+      ),
+    ),
+    child: child,
+  );
+}
+
+// ─── Bottom Nav ───────────────────────────────────────────────────────────────
+class _BottomNav extends StatelessWidget {
+  final int selected;
+  final ValueChanged<int> onTab;
+  final Widget? pendingBadge;
+  const _BottomNav({
+    required this.selected,
+    required this.onTab,
+    this.pendingBadge,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF0E2419),
-        border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.08))),
+        color: _C.surface,
+        border: const Border(top: BorderSide(color: _C.divider)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.4),
+            blurRadius: 20,
+            offset: const Offset(0, -4),
+          ),
+        ],
       ),
       child: SafeArea(
-        child: Row(
-          children: [
-            _NavItem(
-              icon: Icons.task_alt_rounded,
-              label: 'Tasks',
-              selected: _selectedTab == 0,
-              onTap: () => setState(() => _selectedTab = 0),
-            ),
-            _NavItem(
-              icon: Icons.pending_actions_rounded,
-              label: 'Requests',
-              selected: _selectedTab == 1,
-              badge: _currentUser != null
-                  ? StreamBuilder<List<ProgressRequestModel>>(
-                      stream: _taskService.streamPendingRequestsForAdmin(
-                          _currentUser!.uid),
-                      builder: (_, snap) {
-                        final count = snap.data?.length ?? 0;
-                        return count > 0
-                            ? Container(
-                                width: 8, height: 8,
-                                decoration: const BoxDecoration(
-                                    color: Color(0xFFF44336),
-                                    shape: BoxShape.circle),
-                              )
-                            : const SizedBox.shrink();
-                      })
-                  : null,
-              onTap: () => setState(() => _selectedTab = 1),
-            ),
-            _NavItem(
-              icon: Icons.logout_rounded,
-              label: 'Sign Out',
-              selected: false,
-              onTap: () async {
-                await _auth.signOut();
-                if (!mounted) return;
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const LoginScreen()),
-                  (_) => false,
-                );
-              },
-            ),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            children: [
+              _NavItem(
+                icon: Icons.task_alt_rounded,
+                label: 'Tasks',
+                selected: selected == 0,
+                onTap: () => onTab(0),
+              ),
+              _NavItem(
+                icon: Icons.pending_actions_rounded,
+                label: 'Requests',
+                selected: selected == 1,
+                onTap: () => onTab(1),
+                badge: pendingBadge,
+              ),
+              _NavItem(
+                icon: Icons.logout_rounded,
+                label: 'Sign Out',
+                selected: false,
+                onTap: () => onTab(2),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-// ── Bottom Nav Item ───────────────────────────────────────────────
 class _NavItem extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -181,30 +286,45 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? const Color(0xFF42A5F5) : Colors.white38;
+    final color = selected ? _C.blue : _C.textTer;
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 10),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // Indicator pill
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                height: 3,
+                width: selected ? 24 : 0,
+                margin: const EdgeInsets.only(bottom: 6),
+                decoration: BoxDecoration(
+                  color: _C.blue,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
               Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  Icon(icon, color: color, size: 24),
+                  Icon(icon, color: color, size: 22),
                   if (badge != null)
-                    Positioned(top: -4, right: -4, child: badge!),
+                    Positioned(top: -3, right: -5, child: badge!),
                 ],
               ),
               const SizedBox(height: 4),
-              Text(label,
-                  style: GoogleFonts.poppins(
-                      fontSize: 11,
-                      color: color,
-                      fontWeight: selected ? FontWeight.w600 : FontWeight.w400)),
+              Text(
+                label,
+                style: GoogleFonts.dmSans(
+                  fontSize: 11,
+                  color: color,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                ),
+              ),
             ],
           ),
         ),
@@ -213,14 +333,45 @@ class _NavItem extends StatelessWidget {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════
+// ─── FAB ─────────────────────────────────────────────────────────────────────
+class _FAB extends StatelessWidget {
+  final VoidCallback onTap;
+  const _FAB({required this.onTap});
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 58,
+        height: 58,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF42A5F5), Color(0xFF1565C0)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: _C.blue.withOpacity(0.4),
+              blurRadius: 18,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // TAB 1 — TASKS
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
 class _TasksTab extends StatelessWidget {
   final UserModel? currentUser;
   final TaskService taskService;
   final UserService userService;
-
   const _TasksTab({
     required this.currentUser,
     required this.taskService,
@@ -229,9 +380,11 @@ class _TasksTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (currentUser == null) {
-      return _emptyState('Could not load profile.');
-    }
+    if (currentUser == null)
+      return _EmptyState(
+        icon: Icons.error_outline_rounded,
+        message: 'Could not load profile.',
+      );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -239,38 +392,66 @@ class _TasksTab extends StatelessWidget {
         _Header(currentUser: currentUser!),
         Expanded(
           child: StreamBuilder<List<TaskModel>>(
+            // ── FIX: query only by adminId (no orderBy), sort client-side ──
             stream: taskService.streamAdminTasks(currentUser!.uid),
             builder: (context, snap) {
               if (snap.connectionState == ConnectionState.waiting) {
-                return const Center(
-                    child: CircularProgressIndicator(color: Color(0xFF42A5F5)));
+                return const Center(child: _PulseLoader());
               }
               if (snap.hasError) {
-                return _emptyState('Error loading tasks:\n${snap.error}');
+                // More helpful error display
+                final err = snap.error.toString();
+                if (err.contains('failed-precondition') ||
+                    err.contains('index')) {
+                  return _EmptyState(
+                    icon: Icons.cloud_off_rounded,
+                    message:
+                        'Database index required.\nPlease contact your developer to create the required Firestore index.',
+                    color: _C.orange,
+                  );
+                }
+                return _EmptyState(
+                  icon: Icons.error_outline_rounded,
+                  message: 'Error loading tasks.',
+                );
               }
-              final tasks = snap.data ?? [];
+
+              // ── Client-side sort by createdAt descending ──────────────────
+              final tasks = (snap.data ?? [])
+                ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
               if (tasks.isEmpty) {
-                return _emptyState(
-                    'No tasks yet.\nTap + to create your first task.');
+                return _EmptyState(
+                  icon: Icons.assignment_outlined,
+                  message: 'No tasks yet.\nTap + to create your first task.',
+                );
               }
 
               final active = tasks.where((t) => t.status == 'active').length;
-              final inviting = tasks.where((t) => t.status == 'inviting').length;
-              final completed = tasks.where((t) => t.status == 'completed').length;
+              final inviting = tasks
+                  .where((t) => t.status == 'inviting')
+                  .length;
+              final completed = tasks
+                  .where((t) => t.status == 'completed')
+                  .length;
 
               return Column(
                 children: [
-                  _StatBar(active: active, inviting: inviting, completed: completed),
+                  _StatBar(
+                    active: active,
+                    inviting: inviting,
+                    completed: completed,
+                  ),
                   Expanded(
                     child: ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
                       itemCount: tasks.length,
                       itemBuilder: (_, i) => _TaskCard(
                         task: tasks[i],
                         onTap: () => Navigator.push(
                           context,
-                          MaterialPageRoute(
-                            builder: (_) => TaskDetailScreen(
+                          _fadeRoute(
+                            TaskDetailScreen(
                               taskId: tasks[i].taskId,
                               adminId: currentUser!.uid,
                               ngoId: currentUser!.ngoId ?? '',
@@ -290,26 +471,9 @@ class _TasksTab extends StatelessWidget {
       ],
     );
   }
-
-  Widget _emptyState(String msg) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.assignment_outlined,
-              size: 64, color: Colors.white.withValues(alpha: 0.2)),
-          const SizedBox(height: 16),
-          Text(msg,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                  color: Colors.white38, fontSize: 14)),
-        ],
-      ),
-    );
-  }
 }
 
-// ── Header ────────────────────────────────────────────────────────
+// ─── Header ───────────────────────────────────────────────────────────────────
 class _Header extends StatelessWidget {
   final UserModel currentUser;
   const _Header({required this.currentUser});
@@ -319,27 +483,33 @@ class _Header extends StatelessWidget {
     return SafeArea(
       bottom: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
         child: Row(
           children: [
+            // Avatar
             Container(
-              width: 44, height: 44,
+              width: 48,
+              height: 48,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: const RadialGradient(
                   colors: [Color(0xFF42A5F5), Color(0xFF1565C0)],
                   stops: [0.1, 1.0],
                 ),
+                boxShadow: [
+                  BoxShadow(color: _C.blue.withOpacity(0.35), blurRadius: 12),
+                ],
               ),
               child: Center(
                 child: Text(
                   currentUser.name.isNotEmpty
                       ? currentUser.name[0].toUpperCase()
                       : 'A',
-                  style: GoogleFonts.poppins(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18),
+                  style: GoogleFonts.dmSans(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 20,
+                  ),
                 ),
               ),
             ),
@@ -348,30 +518,38 @@ class _Header extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Welcome back,',
-                      style: GoogleFonts.poppins(
-                          color: Colors.white54, fontSize: 12)),
-                  Text(currentUser.name,
-                      style: GoogleFonts.poppins(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700)),
+                  Text(
+                    'Welcome back,',
+                    style: GoogleFonts.dmSans(color: _C.textSec, fontSize: 12),
+                  ),
+                  Text(
+                    currentUser.name,
+                    style: GoogleFonts.dmSans(
+                      color: _C.textPri,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
                 ],
               ),
             ),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
               decoration: BoxDecoration(
-                color: const Color(0xFF42A5F5).withValues(alpha: 0.15),
+                color: _C.blue.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                    color: const Color(0xFF42A5F5).withValues(alpha: 0.4)),
+                border: Border.all(color: _C.blue.withOpacity(0.35)),
               ),
-              child: Text('ADMIN',
-                  style: GoogleFonts.poppins(
-                      color: const Color(0xFF42A5F5),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600)),
+              child: Text(
+                'ADMIN',
+                style: GoogleFonts.dmSans(
+                  color: _C.blue,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1,
+                ),
+              ),
             ),
           ],
         ),
@@ -380,53 +558,70 @@ class _Header extends StatelessWidget {
   }
 }
 
-// ── Stat Bar ──────────────────────────────────────────────────────
+// ─── Stat Bar ─────────────────────────────────────────────────────────────────
 class _StatBar extends StatelessWidget {
   final int active, inviting, completed;
-  const _StatBar(
-      {required this.active, required this.inviting, required this.completed});
+  const _StatBar({
+    required this.active,
+    required this.inviting,
+    required this.completed,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
       child: Row(
         children: [
-          _Stat(label: 'Active', value: active, color: const Color(0xFF4CAF50)),
+          _StatPill(label: 'Active', value: active, color: _C.green),
           const SizedBox(width: 8),
-          _Stat(label: 'Inviting', value: inviting, color: const Color(0xFF42A5F5)),
+          _StatPill(label: 'Inviting', value: inviting, color: _C.blue),
           const SizedBox(width: 8),
-          _Stat(label: 'Done', value: completed, color: Colors.white38),
+          _StatPill(label: 'Done', value: completed, color: _C.textTer),
         ],
       ),
     );
   }
 }
 
-class _Stat extends StatelessWidget {
+class _StatPill extends StatelessWidget {
   final String label;
   final int value;
   final Color color;
-  const _Stat({required this.label, required this.value, required this.color});
+  const _StatPill({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
+        padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withValues(alpha: 0.25)),
+          color: color.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color.withOpacity(0.2)),
         ),
         child: Column(
           children: [
-            Text('$value',
-                style: GoogleFonts.poppins(
-                    color: color, fontSize: 20, fontWeight: FontWeight.w700)),
-            Text(label,
-                style: GoogleFonts.poppins(
-                    color: color.withValues(alpha: 0.8), fontSize: 11)),
+            Text(
+              '$value',
+              style: GoogleFonts.dmSans(
+                color: color,
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            Text(
+              label,
+              style: GoogleFonts.dmSans(
+                color: color.withOpacity(0.7),
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ],
         ),
       ),
@@ -434,165 +629,182 @@ class _Stat extends StatelessWidget {
   }
 }
 
-// ── Task Card ─────────────────────────────────────────────────────
-class _TaskCard extends StatelessWidget {
+// ─── Task Card ────────────────────────────────────────────────────────────────
+class _TaskCard extends StatefulWidget {
   final TaskModel task;
   final VoidCallback onTap;
   const _TaskCard({required this.task, required this.onTap});
+  @override
+  State<_TaskCard> createState() => _TaskCardState();
+}
+
+class _TaskCardState extends State<_TaskCard> {
+  bool _pressed = false;
 
   @override
   Widget build(BuildContext context) {
+    final task = widget.task;
     final urgency = taskUrgencyColor(task.createdAt, task.deadline);
-    final statusData = _statusData(task.status);
+    final sd = _statusData(task.status);
 
     return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(
-          color: const Color(0xFF0E2419),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-        ),
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Container(
-                width: 4,
-                decoration: BoxDecoration(
-                  color: urgency,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(16),
-                    bottomLeft: Radius.circular(16),
-                  ),
-                ),
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) {
+        setState(() => _pressed = false);
+        widget.onTap();
+      },
+      onTapCancel: () => setState(() => _pressed = false),
+      child: AnimatedScale(
+        scale: _pressed ? 0.97 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            color: _C.surface,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: _C.divider),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
               ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(task.title,
-                                style: GoogleFonts.poppins(
-                                    color: Colors.white,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis),
-                          ),
-                          const SizedBox(width: 8),
-                          _StatusChip(label: statusData.$1, color: statusData.$2),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(task.description,
-                          style: GoogleFonts.poppins(
-                              color: Colors.white54, fontSize: 12),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis),
-                      const SizedBox(height: 10),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: task.mainProgress / 100,
-                          backgroundColor: Colors.white12,
-                          valueColor: AlwaysStoppedAnimation(urgency),
-                          minHeight: 6,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.people_outline,
-                                  size: 14, color: Colors.white38),
-                              const SizedBox(width: 4),
-                              Text(
-                                '${task.assignedVolunteers.length}/${task.maxVolunteers}',
-                                style: GoogleFonts.poppins(
-                                    color: Colors.white38, fontSize: 12),
-                              ),
-                            ],
-                          ),
-                          Text('${task.mainProgress.toStringAsFixed(0)}%',
-                              style: GoogleFonts.poppins(
-                                  color: urgency,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600)),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          const Icon(Icons.schedule_outlined,
-                              size: 13, color: Colors.white38),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Due ${task.deadline.day}/${task.deadline.month}/${task.deadline.year}',
-                            style: GoogleFonts.poppins(
-                                color: Colors.white38, fontSize: 11),
-                          ),
-                        ],
-                      ),
+            ],
+          ),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Urgency strip
+                Container(
+                  width: 4,
+                  decoration: BoxDecoration(
+                    color: urgency,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(18),
+                      bottomLeft: Radius.circular(18),
+                    ),
+                    boxShadow: [
+                      BoxShadow(color: urgency.withOpacity(0.6), blurRadius: 8),
                     ],
                   ),
                 ),
-              ),
-            ],
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Title row
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                task.title,
+                                style: GoogleFonts.dmSans(
+                                  color: _C.textPri,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: -0.2,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            _Chip(label: sd.$1, color: sd.$2),
+                          ],
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          task.description,
+                          style: GoogleFonts.dmSans(
+                            color: _C.textSec,
+                            fontSize: 12,
+                            height: 1.4,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 12),
+                        // Progress bar
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: LinearProgressIndicator(
+                            value: task.mainProgress / 100,
+                            backgroundColor: Colors.white.withOpacity(0.06),
+                            valueColor: AlwaysStoppedAnimation(urgency),
+                            minHeight: 6,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        // Meta row
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.people_outline_rounded,
+                              size: 13,
+                              color: _C.textTer,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${task.assignedVolunteers.length}/${task.maxVolunteers}',
+                              style: GoogleFonts.dmSans(
+                                color: _C.textTer,
+                                fontSize: 11,
+                              ),
+                            ),
+                            const Spacer(),
+                            Icon(
+                              Icons.schedule_outlined,
+                              size: 13,
+                              color: _C.textTer,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${task.deadline.day}/${task.deadline.month}/${task.deadline.year}',
+                              style: GoogleFonts.dmSans(
+                                color: _C.textTer,
+                                fontSize: 11,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              '${task.mainProgress.toStringAsFixed(0)}%',
+                              style: GoogleFonts.dmSans(
+                                color: urgency,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  (String, Color) _statusData(String status) {
-    switch (status) {
-      case 'active':
-        return ('ACTIVE', const Color(0xFF4CAF50));
-      case 'completed':
-        return ('DONE', Colors.white38);
-      default:
-        return ('INVITING', const Color(0xFF42A5F5));
-    }
-  }
+  (String, Color) _statusData(String s) => switch (s) {
+    'active' => ('ACTIVE', _C.green),
+    'completed' => ('DONE', _C.textTer),
+    _ => ('INVITING', _C.blue),
+  };
 }
 
-class _StatusChip extends StatelessWidget {
-  final String label;
-  final Color color;
-  const _StatusChip({required this.label, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.4)),
-      ),
-      child: Text(label,
-          style: GoogleFonts.poppins(
-              color: color, fontSize: 10, fontWeight: FontWeight.w600)),
-    );
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// TAB 2 — PROGRESS REQUESTS
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
+// TAB 2 — REQUESTS
+// ═══════════════════════════════════════════════════════════════════════════════
 class _RequestsTab extends StatelessWidget {
   final UserModel? currentUser;
   final TaskService taskService;
   final UserService userService;
-
   const _RequestsTab({
     required this.currentUser,
     required this.taskService,
@@ -602,9 +814,10 @@ class _RequestsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (currentUser == null) {
-      return const Center(
-          child: Text('Could not load profile.',
-              style: TextStyle(color: Colors.white54)));
+      return const _EmptyState(
+        icon: Icons.error_outline_rounded,
+        message: 'Could not load profile.',
+      );
     }
 
     return Column(
@@ -613,12 +826,25 @@ class _RequestsTab extends StatelessWidget {
         SafeArea(
           bottom: false,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-            child: Text('Pending Requests',
-                style: GoogleFonts.poppins(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700)),
+            padding: const EdgeInsets.fromLTRB(20, 28, 20, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Requests',
+                  style: GoogleFonts.dmSans(
+                    color: _C.textPri,
+                    fontSize: 28,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                Text(
+                  'Review volunteer progress updates',
+                  style: GoogleFonts.dmSans(color: _C.textSec, fontSize: 13),
+                ),
+              ],
+            ),
           ),
         ),
         Expanded(
@@ -626,28 +852,17 @@ class _RequestsTab extends StatelessWidget {
             stream: taskService.streamPendingRequestsForAdmin(currentUser!.uid),
             builder: (context, snap) {
               if (snap.connectionState == ConnectionState.waiting) {
-                return const Center(
-                    child: CircularProgressIndicator(color: Color(0xFF42A5F5)));
+                return const Center(child: _PulseLoader());
               }
               final requests = snap.data ?? [];
               if (requests.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.inbox_outlined,
-                          size: 64,
-                          color: Colors.white.withValues(alpha: 0.2)),
-                      const SizedBox(height: 16),
-                      Text('No pending requests',
-                          style: GoogleFonts.poppins(
-                              color: Colors.white38, fontSize: 14)),
-                    ],
-                  ),
+                return const _EmptyState(
+                  icon: Icons.inbox_outlined,
+                  message: 'All clear!\nNo pending requests.',
                 );
               }
               return ListView.builder(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 120),
                 itemCount: requests.length,
                 itemBuilder: (_, i) => _RequestCard(
                   request: requests[i],
@@ -663,18 +878,16 @@ class _RequestsTab extends StatelessWidget {
   }
 }
 
-// ── Progress Request Card ─────────────────────────────────────────
+// ─── Request Card ─────────────────────────────────────────────────────────────
 class _RequestCard extends StatefulWidget {
   final ProgressRequestModel request;
   final TaskService taskService;
   final UserService userService;
-
   const _RequestCard({
     required this.request,
     required this.taskService,
     required this.userService,
   });
-
   @override
   State<_RequestCard> createState() => _RequestCardState();
 }
@@ -686,15 +899,12 @@ class _RequestCardState extends State<_RequestCard> {
   @override
   void initState() {
     super.initState();
-    _loadVolunteerName();
+    _loadName();
   }
 
-  Future<void> _loadVolunteerName() async {
-    final user =
-        await widget.userService.getUserById(widget.request.volunteerId);
-    if (mounted && user != null) {
-      setState(() => _volunteerName = user.name);
-    }
+  Future<void> _loadName() async {
+    final u = await widget.userService.getUserById(widget.request.volunteerId);
+    if (mounted && u != null) setState(() => _volunteerName = u.name);
   }
 
   Future<void> _approve() async {
@@ -702,56 +912,46 @@ class _RequestCardState extends State<_RequestCard> {
     try {
       await widget.taskService.approveProgressRequest(widget.request);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Progress approved!', style: GoogleFonts.poppins()),
-        backgroundColor: const Color(0xFF4CAF50),
-      ));
+      _snack(
+        context,
+        'Progress approved!',
+        _C.green,
+        Icons.check_circle_rounded,
+      );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Error: $e'), backgroundColor: Colors.red));
+      _snack(context, 'Error: $e', _C.red, Icons.error_rounded);
     } finally {
       if (mounted) setState(() => _processing = false);
     }
   }
 
   Future<void> _reject() async {
-    final confirmed = await showDialog<bool>(
+    final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF0E2419),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('Reject Request?',
-            style: GoogleFonts.poppins(
-                color: Colors.white, fontWeight: FontWeight.w600)),
-        content: Text('The volunteer\'s progress will not be updated.',
-            style: GoogleFonts.poppins(color: Colors.white70)),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text('Cancel',
-                  style: GoogleFonts.poppins(color: Colors.white54))),
-          ElevatedButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              child: Text('Reject',
-                  style: GoogleFonts.poppins(color: Colors.white))),
-        ],
+      builder: (ctx) => _DarkDialog(
+        title: 'Reject Request?',
+        body: "The volunteer's progress will not be updated.",
+        confirmLabel: 'Reject',
+        confirmColor: _C.red,
+        onConfirm: () => Navigator.pop(ctx, true),
+        onCancel: () => Navigator.pop(ctx, false),
       ),
     );
-    if (confirmed != true) return;
+    if (ok != true) return;
     setState(() => _processing = true);
     try {
       await widget.taskService.rejectProgressRequest(widget.request);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Request rejected.', style: GoogleFonts.poppins()),
-        backgroundColor: Colors.orange,
-      ));
+      _snack(
+        context,
+        'Request rejected.',
+        _C.orange,
+        Icons.remove_circle_rounded,
+      );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Error: $e'), backgroundColor: Colors.red));
+      _snack(context, 'Error: $e', _C.red, Icons.error_rounded);
     } finally {
       if (mounted) setState(() => _processing = false);
     }
@@ -760,150 +960,511 @@ class _RequestCardState extends State<_RequestCard> {
   @override
   Widget build(BuildContext context) {
     final req = widget.request;
+    final name = _volunteerName ?? '…';
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF0E2419),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        color: _C.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _C.divider),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.18), blurRadius: 10),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 20,
-                backgroundColor:
-                    const Color(0xFF42A5F5).withValues(alpha: 0.2),
-                child: Text(
-                  (_volunteerName ?? '?')[0].toUpperCase(),
-                  style: GoogleFonts.poppins(
-                      color: const Color(0xFF42A5F5),
-                      fontWeight: FontWeight.bold),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(_volunteerName ?? req.volunteerId,
-                        style: GoogleFonts.poppins(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14)),
-                    Text(req.taskTitle,
-                        style: GoogleFonts.poppins(
-                            color: Colors.white54, fontSize: 12),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(10),
-            ),
+          // ── Header ──────────────────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
             child: Row(
               children: [
-                _ProgressPill(value: req.currentProgress, color: Colors.white38),
-                const SizedBox(width: 8),
-                const Icon(Icons.arrow_forward_rounded,
-                    color: Colors.white38, size: 16),
-                const SizedBox(width: 8),
-                _ProgressPill(
-                    value: req.requestedProgress,
-                    color: const Color(0xFF4CAF50)),
+                _Avatar(name: name, color: _C.blue),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        style: GoogleFonts.dmSans(
+                          color: _C.textPri,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                        ),
+                      ),
+                      Text(
+                        req.taskTitle,
+                        style: GoogleFonts.dmSans(
+                          color: _C.textSec,
+                          fontSize: 12,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
-          const SizedBox(height: 10),
-          if (req.mandatoryNote.isNotEmpty) ...[
-            Text('Note:',
-                style: GoogleFonts.poppins(
-                    color: Colors.white54,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500)),
-            const SizedBox(height: 2),
-            Text(req.mandatoryNote,
-                style: GoogleFonts.poppins(
-                    color: Colors.white70, fontSize: 13)),
-            const SizedBox(height: 12),
-          ],
-          if (_processing)
-            const Center(
-                child: CircularProgressIndicator(color: Color(0xFF42A5F5)))
-          else
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _reject,
-                    icon: const Icon(Icons.close_rounded,
-                        color: Colors.red, size: 16),
-                    label: Text('Reject',
-                        style: GoogleFonts.poppins(
-                            color: Colors.red,
-                            fontWeight: FontWeight.w500)),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Colors.red),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
+
+          // ── Progress change ──────────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.04),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _C.divider),
+              ),
+              child: Row(
+                children: [
+                  _ProgressBadge(value: req.currentProgress, color: _C.textTer),
+                  Expanded(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(height: 1, width: 20, color: _C.textTer),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 6),
+                          child: Icon(
+                            Icons.arrow_forward_rounded,
+                            color: _C.textTer,
+                            size: 14,
+                          ),
+                        ),
+                        Container(height: 1, width: 20, color: _C.textTer),
+                      ],
                     ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: _approve,
-                    icon: const Icon(Icons.check_rounded,
-                        color: Colors.white, size: 16),
-                    label: Text('Approve',
-                        style: GoogleFonts.poppins(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w500)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF4CAF50),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      elevation: 0,
-                    ),
-                  ),
-                ),
-              ],
+                  _ProgressBadge(value: req.requestedProgress, color: _C.green),
+                ],
+              ),
             ),
+          ),
+
+          // ── Note ──────────────────────────────────────────────────────────
+          if (req.mandatoryNote.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.format_quote_rounded, size: 14, color: _C.textTer),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      req.mandatoryNote,
+                      style: GoogleFonts.dmSans(
+                        color: _C.textSec,
+                        fontSize: 13,
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          // ── Actions ───────────────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: _processing
+                ? const Center(child: _PulseLoader())
+                : Row(
+                    children: [
+                      Expanded(
+                        child: _OutlineActionBtn(
+                          label: 'Reject',
+                          icon: Icons.close_rounded,
+                          color: _C.red,
+                          onTap: _reject,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _FilledActionBtn(
+                          label: 'Approve',
+                          icon: Icons.check_rounded,
+                          color: _C.green,
+                          onTap: _approve,
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
         ],
       ),
     );
   }
 }
 
-class _ProgressPill extends StatelessWidget {
+// ─── Reusable Small Widgets ───────────────────────────────────────────────────
+
+class _Avatar extends StatelessWidget {
+  final String name;
+  final Color color;
+  const _Avatar({required this.name, required this.color});
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 40,
+    height: 40,
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      color: color.withOpacity(0.15),
+      border: Border.all(color: color.withOpacity(0.3)),
+    ),
+    child: Center(
+      child: Text(
+        name.isEmpty ? '?' : name[0].toUpperCase(),
+        style: GoogleFonts.dmSans(
+          color: color,
+          fontWeight: FontWeight.w800,
+          fontSize: 16,
+        ),
+      ),
+    ),
+  );
+}
+
+class _Chip extends StatelessWidget {
+  final String label;
+  final Color color;
+  const _Chip({required this.label, required this.color});
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+    decoration: BoxDecoration(
+      color: color.withOpacity(0.12),
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: color.withOpacity(0.35)),
+    ),
+    child: Text(
+      label,
+      style: GoogleFonts.dmSans(
+        color: color,
+        fontSize: 10,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.5,
+      ),
+    ),
+  );
+}
+
+class _ProgressBadge extends StatelessWidget {
   final double value;
   final Color color;
-  const _ProgressPill({required this.value, required this.color});
-
+  const _ProgressBadge({required this.value, required this.color});
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.4)),
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+    decoration: BoxDecoration(
+      color: color.withOpacity(0.1),
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: color.withOpacity(0.3)),
+    ),
+    child: Text(
+      '${value.toStringAsFixed(0)}%',
+      style: GoogleFonts.dmSans(
+        color: color,
+        fontSize: 15,
+        fontWeight: FontWeight.w800,
       ),
-      child: Text('${value.toStringAsFixed(0)}%',
-          style: GoogleFonts.poppins(
-              color: color, fontSize: 13, fontWeight: FontWeight.w600)),
-    );
-  }
+    ),
+  );
 }
+
+class _OutlineActionBtn extends StatefulWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+  const _OutlineActionBtn({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+  @override
+  State<_OutlineActionBtn> createState() => _OutlineActionBtnState();
+}
+
+class _OutlineActionBtnState extends State<_OutlineActionBtn> {
+  bool _p = false;
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTapDown: (_) => setState(() => _p = true),
+    onTapUp: (_) {
+      setState(() => _p = false);
+      widget.onTap();
+    },
+    onTapCancel: () => setState(() => _p = false),
+    child: AnimatedScale(
+      scale: _p ? 0.95 : 1.0,
+      duration: const Duration(milliseconds: 90),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: widget.color.withOpacity(0.5)),
+          color: widget.color.withOpacity(0.06),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(widget.icon, color: widget.color, size: 15),
+            const SizedBox(width: 6),
+            Text(
+              widget.label,
+              style: GoogleFonts.dmSans(
+                color: widget.color,
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+class _FilledActionBtn extends StatefulWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+  const _FilledActionBtn({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+  @override
+  State<_FilledActionBtn> createState() => _FilledActionBtnState();
+}
+
+class _FilledActionBtnState extends State<_FilledActionBtn> {
+  bool _p = false;
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTapDown: (_) => setState(() => _p = true),
+    onTapUp: (_) {
+      setState(() => _p = false);
+      widget.onTap();
+    },
+    onTapCancel: () => setState(() => _p = false),
+    child: AnimatedScale(
+      scale: _p ? 0.95 : 1.0,
+      duration: const Duration(milliseconds: 90),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          color: widget.color,
+          boxShadow: [
+            BoxShadow(
+              color: widget.color.withOpacity(0.35),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(widget.icon, color: Colors.white, size: 15),
+            const SizedBox(width: 6),
+            Text(
+              widget.label,
+              style: GoogleFonts.dmSans(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+class _EmptyState extends StatelessWidget {
+  final IconData icon;
+  final String message;
+  final Color color;
+  const _EmptyState({
+    required this.icon,
+    required this.message,
+    this.color = _C.textTer,
+  });
+  @override
+  Widget build(BuildContext context) => Center(
+    child: Padding(
+      padding: const EdgeInsets.all(40),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: color.withOpacity(0.08),
+            ),
+            child: Icon(icon, size: 40, color: color),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.dmSans(color: color, fontSize: 14, height: 1.6),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _PulseLoader extends StatelessWidget {
+  const _PulseLoader();
+  @override
+  Widget build(BuildContext context) =>
+      const CircularProgressIndicator(color: _C.blue, strokeWidth: 2.5);
+}
+
+class _DarkDialog extends StatelessWidget {
+  final String title, body, confirmLabel;
+  final Color confirmColor;
+  final VoidCallback onConfirm, onCancel;
+  const _DarkDialog({
+    required this.title,
+    required this.body,
+    required this.confirmLabel,
+    required this.confirmColor,
+    required this.onConfirm,
+    required this.onCancel,
+  });
+  @override
+  Widget build(BuildContext context) => Dialog(
+    backgroundColor: Colors.transparent,
+    child: Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: _C.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _C.divider),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: GoogleFonts.dmSans(
+              color: _C.textPri,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            body,
+            style: GoogleFonts.dmSans(
+              color: _C.textSec,
+              fontSize: 14,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: onCancel,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: _C.divider),
+                    ),
+                    child: Center(
+                      child: Text(
+                        'Cancel',
+                        style: GoogleFonts.dmSans(
+                          color: _C.textSec,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: GestureDetector(
+                  onTap: onConfirm,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: confirmColor,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: confirmColor.withOpacity(0.35),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: Text(
+                        confirmLabel,
+                        style: GoogleFonts.dmSans(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+void _snack(BuildContext context, String msg, Color bg, IconData icon) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Row(
+        children: [
+          Icon(icon, color: Colors.white, size: 15),
+          const SizedBox(width: 8),
+          Expanded(child: Text(msg, style: GoogleFonts.dmSans(fontSize: 13))),
+        ],
+      ),
+      backgroundColor: bg,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      duration: const Duration(seconds: 2),
+    ),
+  );
+}
+
+PageRoute _fadeRoute(Widget page) => PageRouteBuilder(
+  pageBuilder: (_, __, ___) => page,
+  transitionsBuilder: (_, anim, __, child) =>
+      FadeTransition(opacity: anim, child: child),
+  transitionDuration: const Duration(milliseconds: 250),
+);

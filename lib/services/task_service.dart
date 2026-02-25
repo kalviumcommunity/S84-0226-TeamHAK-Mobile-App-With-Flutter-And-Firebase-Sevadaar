@@ -4,7 +4,6 @@ import '../models/task_assignment_model.dart';
 import '../models/progress_request_model.dart';
 import '../models/user_model.dart';
 
-/// Handles all Firestore operations for tasks, assignments & progress requests.
 class TaskService {
   FirebaseFirestore? _dbInstance;
   FirebaseFirestore get _db {
@@ -48,24 +47,26 @@ class TaskService {
     return _db
         .collection('tasks')
         .where('adminId', isEqualTo: adminId)
-        .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snap) => snap.docs
-            .map((d) => TaskModel.fromMap(d.data(), d.id))
-            .toList());
+        .map(
+          (snap) =>
+              snap.docs.map((d) => TaskModel.fromMap(d.data(), d.id)).toList(),
+        );
   }
 
   Stream<List<ProgressRequestModel>> streamPendingRequestsForAdmin(
-      String adminId) {
+    String adminId,
+  ) {
     return _db
         .collection('progress_requests')
         .where('adminId', isEqualTo: adminId)
         .where('status', isEqualTo: 'pending')
-        .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snap) => snap.docs
-            .map((d) => ProgressRequestModel.fromMap(d.data(), d.id))
-            .toList());
+        .map(
+          (snap) => snap.docs
+              .map((d) => ProgressRequestModel.fromMap(d.data(), d.id))
+              .toList(),
+        );
   }
 
   Stream<List<TaskAssignmentModel>> streamTaskAssignments(String taskId) {
@@ -73,9 +74,11 @@ class TaskService {
         .collection('task_assignments')
         .where('taskId', isEqualTo: taskId)
         .snapshots()
-        .map((snap) => snap.docs
-            .map((d) => TaskAssignmentModel.fromMap(d.data(), d.id))
-            .toList());
+        .map(
+          (snap) => snap.docs
+              .map((d) => TaskAssignmentModel.fromMap(d.data(), d.id))
+              .toList(),
+        );
   }
 
   Stream<TaskModel?> streamTask(String taskId) {
@@ -85,19 +88,23 @@ class TaskService {
     });
   }
 
-  /// Stream NGO volunteers for the invite panel (role == 'volunteer' in same NGO)
   Stream<List<UserModel>> streamNgoVolunteers(String ngoId) {
     return _db
         .collection('users')
         .where('ngoId', isEqualTo: ngoId)
         .where('role', isEqualTo: 'volunteer')
         .snapshots()
-        .map((snap) =>
-            snap.docs.map((d) => UserModel.fromMap(d.data(), d.id)).toList());
+        .map(
+          (snap) =>
+              snap.docs.map((d) => UserModel.fromMap(d.data(), d.id)).toList(),
+        );
   }
 
   // ── INVITE VOLUNTEERS ─────────────────────────────────────────
-  Future<void> inviteVolunteers(String taskId, List<String> volunteerIds) async {
+  Future<void> inviteVolunteers(
+    String taskId,
+    List<String> volunteerIds,
+  ) async {
     await _db.collection('tasks').doc(taskId).update({
       'pendingInvites': FieldValue.arrayUnion(volunteerIds),
     });
@@ -110,10 +117,7 @@ class TaskService {
   }
 
   // ── APPROVE PROGRESS REQUEST ──────────────────────────────────
-  /// Approves a progress request, updates individualProgress,
-  /// then recalculates mainProgress across all assignments.
   Future<void> approveProgressRequest(ProgressRequestModel request) async {
-    // 1. Find the assignment doc for this volunteer + task
     final assignSnap = await _db
         .collection('task_assignments')
         .where('taskId', isEqualTo: request.taskId)
@@ -127,18 +131,15 @@ class TaskService {
 
     final assignmentRef = assignSnap.docs.first.reference;
 
-    // 2. Run in a batch: update assignment + mark request approved
     final batch = _db.batch();
     batch.update(assignmentRef, {
       'individualProgress': request.requestedProgress,
     });
-    batch.update(
-      _db.collection('progress_requests').doc(request.requestId),
-      {'status': 'approved'},
-    );
+    batch.update(_db.collection('progress_requests').doc(request.requestId), {
+      'status': 'approved',
+    });
     await batch.commit();
 
-    // 3. Recalculate mainProgress
     await _recalculateMainProgress(request.taskId);
   }
 
@@ -150,9 +151,7 @@ class TaskService {
   }
 
   // ── REMOVE VOLUNTEER FROM TASK ────────────────────────────────
-  /// Removes a volunteer, deletes their assignment, recalculates progress.
   Future<void> removeVolunteer(String taskId, String volunteerId) async {
-    // Delete assignment
     final assignSnap = await _db
         .collection('task_assignments')
         .where('taskId', isEqualTo: taskId)
@@ -166,25 +165,22 @@ class TaskService {
       batch.delete(assignSnap.docs.first.reference);
     }
 
-    // Remove from task arrays
     batch.update(_db.collection('tasks').doc(taskId), {
       'assignedVolunteers': FieldValue.arrayRemove([volunteerId]),
     });
 
-    // Reject any pending progress requests from this volunteer for this task
     final pendingReqs = await _db
         .collection('progress_requests')
         .where('taskId', isEqualTo: taskId)
         .where('volunteerId', isEqualTo: volunteerId)
         .where('status', isEqualTo: 'pending')
         .get();
+
     for (final doc in pendingReqs.docs) {
       batch.update(doc.reference, {'status': 'rejected'});
     }
 
     await batch.commit();
-
-    // Recalculate after removal
     await _recalculateMainProgress(taskId);
   }
 
@@ -197,12 +193,12 @@ class TaskService {
       'mainProgress': 100.0,
     });
 
-    // Archive associated group chat if exists
     final chatSnap = await _db
         .collection('chats')
         .where('taskId', isEqualTo: taskId)
         .limit(1)
         .get();
+
     if (chatSnap.docs.isNotEmpty) {
       batch.update(chatSnap.docs.first.reference, {'isArchived': true});
     }
