@@ -66,7 +66,7 @@ class _LandingPageState extends State<LandingPage> {
                           height: 200,
                           width: 200,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF9298F0).withOpacity(0.1),
+                            color: const Color(0xFF9298F0).withValues(alpha: 0.1),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(

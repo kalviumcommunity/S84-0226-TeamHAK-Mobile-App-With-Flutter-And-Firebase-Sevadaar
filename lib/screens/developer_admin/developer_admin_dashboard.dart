@@ -299,7 +299,7 @@ class _RequestCardState extends State<_RequestCard> {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF6A74F8).withOpacity(0.1),
+                    color: const Color(0xFF6A74F8).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(Icons.business_rounded,
@@ -331,7 +331,7 @@ class _RequestCardState extends State<_RequestCard> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
+                    color: statusColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
