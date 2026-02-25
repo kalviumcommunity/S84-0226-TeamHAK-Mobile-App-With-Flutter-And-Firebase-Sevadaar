@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../services/auth_service.dart';
 import '../../services/ngo_service.dart';
+import '../../services/user_service.dart';
 import '../auth/login_screen.dart';
+import 'manage_admins_screen.dart';
 
 class SuperAdminDashboard extends StatefulWidget {
   const SuperAdminDashboard({super.key});
@@ -15,6 +17,21 @@ class SuperAdminDashboard extends StatefulWidget {
 class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
   final _ngoService = NgoService();
   final _authService = AuthService();
+  final _userService = UserService();
+
+  /// Opens the Manage Members screen for this Super Admin's NGO.
+  Future<void> _openManageAdmins() async {
+    try {
+      // Show dialog to select which NGO to manage members for
+      _showMyNgosDialog();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Error: $e'),
+        backgroundColor: Colors.red,
+      ));
+    }
+  }
 
   /// Shows a dialog to create a new NGO and displays the generated join code.
   Future<void> _showCreateNgoDialog() async {
@@ -122,6 +139,8 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
                               contactEmail: emailCtrl.text,
                               superAdminId: uid,
                             );
+                            // Update super admin's ngoId so they appear in members list
+                            await _userService.assignNgo(uid, ngo.ngoId);
                             if (!ctx.mounted) return;
                             Navigator.pop(ctx, true);
                             // Show the join code to the super admin
@@ -249,10 +268,243 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
     );
   }
 
+  /// Shows all NGOs created by the current super admin.
+  Future<void> _showMyNgosDialog() async {
+    try {
+      final uid = _authService.currentUser?.uid ?? '';
+      if (uid.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(
+            'Unable to load your NGOs.',
+            style: GoogleFonts.poppins(),
+          ),
+          backgroundColor: Colors.red,
+        ));
+        return;
+      }
+
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text(
+            'Your NGOs',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: StreamBuilder(
+              stream: _ngoService.getNgosForSuperAdmin(uid),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Text(
+                      'Error loading NGOs',
+                      style: GoogleFonts.poppins(color: Colors.red),
+                    ),
+                  );
+                }
+
+                final ngos = snapshot.data ?? [];
+
+                if (ngos.isEmpty) {
+                  return Center(
+                    child: Text(
+                      'No NGOs created yet.\nClick "Create NGO" to add one.',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.poppins(
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  );
+                }
+
+                return ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: ngos.length,
+                  itemBuilder: (context, index) {
+                    final ngo = ngos[index];
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF6A74F8).withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(
+                                  Icons.business,
+                                  color: Color(0xFF6A74F8),
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      ngo.name,
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: const Color(0xFF2D3142),
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Code: ${ngo.joinCode}',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 12,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (ngo.description.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              ngo.description,
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                          if (ngo.contactEmail.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              ngo.contactEmail,
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 12),
+                          // Action Buttons
+                          Row(
+                            children: [
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: () async {
+                                    // Close dialog first
+                                    Navigator.pop(ctx);
+                                    // Wait a bit for dialog to close completely
+                                    await Future.delayed(const Duration(milliseconds: 100));
+                                    // Then navigate to manage members screen
+                                    if (!context.mounted) return;
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => ManageAdminsScreen(
+                                          ngoId: ngo.ngoId,
+                                          superAdminUid: uid,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  icon: const Icon(Icons.people, size: 16),
+                                  label: Text(
+                                    'Manage Members',
+                                    style: GoogleFonts.poppins(fontSize: 12),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF2196F3),
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 8),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: () {
+                                    Clipboard.setData(ClipboardData(text: ngo.joinCode));
+                                    ScaffoldMessenger.of(ctx).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'Code ${ngo.joinCode} copied!',
+                                          style: GoogleFonts.poppins(),
+                                        ),
+                                        duration: const Duration(seconds: 2),
+                                      ),
+                                    );
+                                  },
+                                  icon: const Icon(Icons.copy, size: 16),
+                                  label: Text(
+                                    'Copy Code',
+                                    style: GoogleFonts.poppins(fontSize: 12),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF4CAF50),
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 8),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF9298F0),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: Text('Close', style: GoogleFonts.poppins()),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Error: $e'),
+        backgroundColor: Colors.red,
+      ));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
     final today = '${now.day}/${now.month}/${now.year}';
+    final uid = _authService.currentUser?.uid ?? '';
 
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
@@ -287,42 +539,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Search Bar
-            Container(
-              margin: const EdgeInsets.only(bottom: 24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: TextField(
-                decoration: InputDecoration(
-                  hintText: 'Search NGOs, users...',
-                  hintStyle: GoogleFonts.poppins(
-                    color: Colors.grey.shade400,
-                    fontSize: 16,
-                  ),
-                  prefixIcon: Icon(Icons.search, color: Colors.grey.shade400),
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 16,
-                  ),
-                ),
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  color: const Color(0xFF2D3142),
-                ),
-              ),
-            ),
-
-            // Welcome Card
+            // Welcome Card with Real Data
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(24),
@@ -391,91 +608,21 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
                     ],
                   ),
                   const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      _buildStatBadge('Total NGOs', '24', '+3 this week', true),
-                      const SizedBox(width: 16),
-                      _buildStatBadge('Pending Apps', '12', '-2 today', false),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 32),
-
-            // Mini Analytics Section
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Weekly Overview',
-                    style: GoogleFonts.poppins(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF2D3142),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          children: [
-                            Text(
-                              'NGOs Registered',
-                              style: GoogleFonts.poppins(
-                                fontSize: 12,
-                                color: Colors.grey.shade600,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: List.generate(
-                                7,
-                                (index) => Container(
-                                  width: 8,
-                                  height: 32,
-                                  margin: const EdgeInsets.symmetric(
-                                    horizontal: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: index < 5
-                                        ? const Color(0xFF9298F0)
-                                        : Colors.grey.shade200,
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '5 this week',
-                              style: GoogleFonts.poppins(
-                                fontSize: 12,
-                                color: const Color(0xFF2D3142),
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                  // Real NGO Count
+                  StreamBuilder(
+                    stream: _ngoService.getNgosForSuperAdmin(uid),
+                    builder: (context, snapshot) {
+                      int ngoCount = 0;
+                      if (snapshot.hasData) {
+                        ngoCount = snapshot.data?.length ?? 0;
+                      }
+                      return Row(
+                        children: [
+                          _buildStatBadge('Total NGOs', ngoCount.toString(), true),
+                          const SizedBox(width: 16),
+                        ],
+                      );
+                    },
                   ),
                 ],
               ),
@@ -495,80 +642,37 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
             const SizedBox(height: 16),
 
             // Actions Grid
-            // Actions Grid
             GridView.count(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               crossAxisCount: 2,
               crossAxisSpacing: 16,
               mainAxisSpacing: 16,
-              // Lowered from 1.8 to 1.2 to give the cards more height so text doesn't cut off
-              childAspectRatio: 1.2,
+              mainAxisExtent: 140,
               children: [
                 _buildActionCard(
-                  'Approve NGOs',
-                  'Review applications',
-                  Icons.verified_outlined,
+                  'Your NGOs',
+                  'View all your NGOs',
+                  Icons.business_outlined,
                   const Color(0xFF4CAF50),
-                  () {},
-                  badgeCount: 12,
+                  _showMyNgosDialog,
                 ),
                 _buildActionCard(
                   'Create NGO',
                   'Add manually',
                   Icons.add_business_outlined,
                   const Color(0xFF2196F3),
-                  _showCreateNgoDialog, // Functionality remains 100% intact!
+                  _showCreateNgoDialog,
                 ),
                 _buildActionCard(
                   'Manage Users',
                   'View all accounts',
                   Icons.people_outline,
                   const Color(0xFFFFA726),
-                  () {},
-                ),
-                _buildActionCard(
-                  'Reports',
-                  'System analytics',
-                  Icons.analytics_outlined,
-                  const Color(0xFF9C27B0),
-                  () {},
+                  _openManageAdmins,
                 ),
               ],
             ),
-
-            const SizedBox(height: 32),
-
-            // Recent Activity Placeholder
-            Text(
-              'Recent Activity',
-              style: GoogleFonts.poppins(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF2D3142),
-              ),
-            ),
-            const SizedBox(height: 16),
-            _buildActivityGroup('Today', [
-              _buildActivityItem(
-                'New application from "Helping Hands"',
-                '2 mins ago',
-                'H',
-              ),
-              _buildActivityItem(
-                'NGO "Green Earth" verified',
-                '1 hour ago',
-                'G',
-              ),
-            ]),
-            const SizedBox(height: 16),
-            _buildActivityGroup('Yesterday', [
-              _buildActivityItem(
-                'System maintenance scheduled',
-                '1 day ago',
-                'S',
-              ),
-            ]),
           ],
         ),
       ),
@@ -578,7 +682,6 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
   Widget _buildStatBadge(
     String label,
     String value,
-    String trend,
     bool isPositive,
   ) {
     return Container(
@@ -604,26 +707,6 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
               color: Colors.white.withValues(alpha: 0.8),
               fontSize: 12,
             ),
-          ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Icon(
-                isPositive ? Icons.trending_up : Icons.trending_down,
-                color: isPositive ? Colors.green.shade300 : Colors.red.shade300,
-                size: 14,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                trend,
-                style: GoogleFonts.poppins(
-                  color: isPositive
-                      ? Colors.green.shade300
-                      : Colors.red.shade300,
-                  fontSize: 10,
-                ),
-              ),
-            ],
           ),
         ],
       ),
@@ -720,69 +803,6 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildActivityGroup(String title, List<Widget> items) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: GoogleFonts.poppins(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: Colors.grey.shade600,
-          ),
-        ),
-        const SizedBox(height: 8),
-        ...items,
-      ],
-    );
-  }
-
-  Widget _buildActivityItem(String title, String time, String avatarLetter) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade100),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 16,
-            backgroundColor: const Color(0xFF9298F0).withValues(alpha: 0.1),
-            child: Text(
-              avatarLetter,
-              style: GoogleFonts.poppins(
-                color: const Color(0xFF9298F0),
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Text(
-              title,
-              style: GoogleFonts.poppins(
-                color: const Color(0xFF2D3142),
-                fontSize: 14,
-              ),
-            ),
-          ),
-          Text(
-            time,
-            style: GoogleFonts.poppins(
-              color: Colors.grey.shade400,
-              fontSize: 12,
-            ),
-          ),
-        ],
       ),
     );
   }

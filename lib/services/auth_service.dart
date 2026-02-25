@@ -167,11 +167,13 @@ class AuthService {
   }
 
   /// Completes the profile for a Google-signed-in user. ngoCode is OPTIONAL.
+  /// Role can be 'volunteer', 'admin', or 'super_admin' (defaults to 'volunteer').
   Future<UserModel> completeGoogleSignUp({
     required String uid,
     required String name,
     required String email,
     String? ngoCode,
+    String role = 'volunteer',
   }) async {
     String? resolvedNgoId;
     if (ngoCode != null && ngoCode.trim().isNotEmpty) {
@@ -185,7 +187,7 @@ class AuthService {
       uid: uid,
       name: name.trim(),
       email: email.trim(),
-      role: 'volunteer',
+      role: role,
       status: 'active',
       ngoId: resolvedNgoId,
       orgId: resolvedNgoId,
