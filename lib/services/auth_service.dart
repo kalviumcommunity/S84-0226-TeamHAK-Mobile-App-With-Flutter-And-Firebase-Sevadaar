@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../models/user_model.dart';
+import 'ngo_service.dart';
 
 /// Handles Firebase Authentication + Firestore user profile operations.
 class AuthService {
@@ -48,13 +49,23 @@ class AuthService {
 
   // ── Sign Up ─────────────────────────────────────────────────────
   /// Creates a new Firebase Auth user + writes a `users` doc in Firestore.
-  /// Requires a valid 8-digit NGO join code.
+  /// NGO code is OPTIONAL — user signs up as volunteer.
   Future<UserModel> signUp({
     required String name,
     required String email,
     required String password,
-    required String orgId,
+    String? ngoCode,
   }) async {
+    String? resolvedNgoId;
+
+    // Validate NGO code if provided
+    if (ngoCode != null && ngoCode.trim().isNotEmpty) {
+      final ngoService = NgoService();
+      final ngo = await ngoService.validateJoinCode(ngoCode.trim());
+      if (ngo == null) throw Exception('Invalid NGO code. Please check and try again.');
+      resolvedNgoId = ngo.ngoId;
+    }
+
     // 1. Create auth account
     final cred = await _auth.createUserWithEmailAndPassword(
       email: email.trim(),
@@ -70,7 +81,9 @@ class AuthService {
       email: email.trim(),
       role: 'volunteer',
       status: 'active',
-      orgId: orgId,
+      ngoId: resolvedNgoId,
+      orgId: resolvedNgoId,
+      ngoRequestStatus: 'none',
       createdAt: DateTime.now(),
     );
 
@@ -153,20 +166,30 @@ class AuthService {
     );
   }
 
-  /// Completes the profile for a Google-signed-in user (post-Google form).
+  /// Completes the profile for a Google-signed-in user. ngoCode is OPTIONAL.
   Future<UserModel> completeGoogleSignUp({
     required String uid,
     required String name,
     required String email,
-    required String orgId,
+    String? ngoCode,
   }) async {
+    String? resolvedNgoId;
+    if (ngoCode != null && ngoCode.trim().isNotEmpty) {
+      final ngoService = NgoService();
+      final ngo = await ngoService.validateJoinCode(ngoCode.trim());
+      if (ngo == null) throw Exception('Invalid NGO code. Please check and try again.');
+      resolvedNgoId = ngo.ngoId;
+    }
+
     final user = UserModel(
       uid: uid,
       name: name.trim(),
       email: email.trim(),
       role: 'volunteer',
       status: 'active',
-      orgId: orgId,
+      ngoId: resolvedNgoId,
+      orgId: resolvedNgoId,
+      ngoRequestStatus: 'none',
       createdAt: DateTime.now(),
     );
 

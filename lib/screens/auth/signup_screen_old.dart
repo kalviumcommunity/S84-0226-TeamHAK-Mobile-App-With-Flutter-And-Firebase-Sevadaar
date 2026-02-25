@@ -143,7 +143,7 @@ class _SignupScreenState extends State<SignupScreen>
         name: _nameCtrl.text,
         email: _emailCtrl.text,
         password: _passCtrl.text,
-        orgId: ngo.ngoId,
+        ngoCode: _codeCtrl.text.trim(),
       );
 
       if (!mounted) return;

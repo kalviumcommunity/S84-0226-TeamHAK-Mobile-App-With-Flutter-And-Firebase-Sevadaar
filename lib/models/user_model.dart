@@ -1,14 +1,18 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// Mirrors the Firestore `users` collection schema from the LLD.
+/// Mirrors the Firestore `users` collection schema.
+/// Roles: "developer_admin", "super_admin", "admin", "volunteer"
+/// ngoRequestStatus: "none", "pending", "approved", "rejected"
 class UserModel {
   final String uid;
   final String name;
   final String email;
-  final String role; // "super_admin", "admin", "volunteer"
+  final String role; // "developer_admin", "super_admin", "admin", "volunteer"
   final String status; // "active", "inactive"
   final String fcmToken;
-  final String? orgId; // The NGO/org this user belongs to (null for super_admin)
+  final String? orgId; // Legacy field — alias for ngoId
+  final String? ngoId; // The NGO this user belongs to
+  final String ngoRequestStatus; // "none", "pending", "approved", "rejected"
   final DateTime createdAt;
 
   const UserModel({
@@ -19,6 +23,8 @@ class UserModel {
     this.status = 'active',
     this.fcmToken = '',
     this.orgId,
+    this.ngoId,
+    this.ngoRequestStatus = 'none',
     required this.createdAt,
   });
 
@@ -31,7 +37,9 @@ class UserModel {
       role: map['role'] ?? 'volunteer',
       status: map['status'] ?? 'active',
       fcmToken: map['fcmToken'] ?? '',
-      orgId: map['orgId'],
+      orgId: map['orgId'] ?? map['ngoId'],
+      ngoId: map['ngoId'] ?? map['orgId'],
+      ngoRequestStatus: map['ngoRequestStatus'] ?? 'none',
       createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
@@ -45,7 +53,9 @@ class UserModel {
       'role': role,
       'status': status,
       'fcmToken': fcmToken,
-      'orgId': orgId,
+      'orgId': ngoId ?? orgId,
+      'ngoId': ngoId ?? orgId,
+      'ngoRequestStatus': ngoRequestStatus,
       'createdAt': Timestamp.fromDate(createdAt),
     };
   }
@@ -57,6 +67,9 @@ class UserModel {
     String? status,
     String? fcmToken,
     String? orgId,
+    String? ngoId,
+    String? ngoRequestStatus,
+    bool clearNgoId = false,
   }) {
     return UserModel(
       uid: uid,
@@ -65,7 +78,9 @@ class UserModel {
       role: role ?? this.role,
       status: status ?? this.status,
       fcmToken: fcmToken ?? this.fcmToken,
-      orgId: orgId ?? this.orgId,
+      orgId: clearNgoId ? null : (orgId ?? this.orgId),
+      ngoId: clearNgoId ? null : (ngoId ?? this.ngoId),
+      ngoRequestStatus: ngoRequestStatus ?? this.ngoRequestStatus,
       createdAt: createdAt,
     );
   }

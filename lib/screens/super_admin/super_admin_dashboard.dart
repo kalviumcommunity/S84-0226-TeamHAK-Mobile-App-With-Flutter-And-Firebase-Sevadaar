@@ -24,7 +24,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
     final emailCtrl = TextEditingController();
     final formKey = GlobalKey<FormState>();
 
-    final created = await showDialog<bool>(
+    await showDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (ctx) {

@@ -85,7 +85,7 @@ class _GoogleSignupFormScreenState extends State<GoogleSignupFormScreen>
         uid: widget.firebaseUser.uid,
         name: _nameCtrl.text,
         email: widget.firebaseUser.email ?? '',
-        orgId: ngo.ngoId,
+        ngoCode: _codeCtrl.text.trim(),
       );
 
       if (!mounted) return;

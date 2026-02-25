@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../services/auth_service.dart';
-import '../../services/ngo_service.dart';
 import '../../widgets/auth_header.dart';
-import 'ngo_application_screen.dart';
 import 'google_signup_form_screen.dart';
 import 'login_screen.dart';
 import '../role_router.dart';
@@ -24,7 +22,6 @@ class _SignupScreenState extends State<SignupScreen> {
   final _formKey = GlobalKey<FormState>();
 
   final _authService = AuthService();
-  final _ngoService = NgoService();
 
   bool _loading = false;
   String? _error;
@@ -45,20 +42,13 @@ class _SignupScreenState extends State<SignupScreen> {
       _error = null;
     });
     try {
-      final ngo = await _ngoService.validateJoinCode(_codeCtrl.text.trim());
-      if (ngo == null) {
-        setState(() {
-          _error = 'Invalid NGO code. Please check and try again.';
-          _loading = false;
-        });
-        return;
-      }
+      final code = _codeCtrl.text.trim();
 
       await _authService.signUp(
         name: _nameCtrl.text,
         email: _emailCtrl.text,
         password: _passCtrl.text,
-        orgId: ngo.ngoId,
+        ngoCode: code.isEmpty ? null : code,
       );
 
       if (!mounted) return;
@@ -200,12 +190,25 @@ class _SignupScreenState extends State<SignupScreen> {
                             controller: _codeCtrl,
                             keyboardType: TextInputType.number,
                             decoration: InputDecoration(
-                              hintText: '8-Digit NGO Code',
+                              hintText: '8-Digit NGO Code (Optional)',
                               hintStyle: GoogleFonts.poppins(color: Colors.grey.shade400),
                               border: InputBorder.none,
                               contentPadding: const EdgeInsets.all(20),
+                              helperText:
+                                  'Leave empty if you don\'t have an NGO code yet',
+                              helperStyle: GoogleFonts.poppins(
+                                fontSize: 11,
+                                color: Colors.grey.shade500,
+                              ),
                             ),
-                            validator: (v) => v!.length != 8 ? 'Must be 8 digits' : null,
+                            // No validator — field is optional
+                            validator: (v) {
+                              if (v == null || v.trim().isEmpty) return null;
+                              if (v.trim().length != 8) {
+                                return 'NGO code must be 8 digits';
+                              }
+                              return null;
+                            },
                           ),
                         ],
                       ),
@@ -299,23 +302,6 @@ class _SignupScreenState extends State<SignupScreen> {
                       ],
                     ),
                     
-                    // NGO Application Link
-                    TextButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const NgoApplicationScreen()),
-                        );
-                      },
-                      child: Text(
-                        'Have an NGO? Apply here',
-                        style: GoogleFonts.poppins(
-                          color: Colors.grey.shade500,
-                          fontWeight: FontWeight.w500,
-                          decoration: TextDecoration.underline,
-                        ),
-                      ),
-                    ),
                     const SizedBox(height: 40),
                   ],
                 ),
