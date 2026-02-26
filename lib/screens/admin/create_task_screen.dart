@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../models/user_model.dart';
 import '../../services/task_service.dart';
+import '../../services/user_service.dart';
 
 // ─── Shared Design Tokens (mirroring admin_dashboard.dart) ────────────────────
 class _C {
   static const bg = Color(0xFFEEF2F8);
-  static const bgCard = Colors.white;
-  static const heroCard = Color(0xFF0D1B3E);
   static const blue = Color(0xFF4A6CF7);
   static const blueLight = Color(0xFFEEF2FF);
   static const green = Color(0xFF22C55E);
@@ -23,10 +23,12 @@ class _C {
 class CreateTaskScreen extends StatefulWidget {
   final String adminId;
   final String ngoId;
+  final String? ngoName;
   const CreateTaskScreen({
     super.key,
     required this.adminId,
     required this.ngoId,
+    this.ngoName,
   });
   @override
   State<CreateTaskScreen> createState() => _CreateTaskScreenState();
@@ -39,9 +41,11 @@ class _CreateTaskScreenState extends State<CreateTaskScreen>
   final _descCtrl = TextEditingController();
   final _maxVolCtrl = TextEditingController(text: '1');
   final _taskService = TaskService();
+  final _userService = UserService();
 
   DateTime? _deadline;
   bool _loading = false;
+  bool _membersExpanded = false;
 
   late AnimationController _entranceCtrl;
   late List<Animation<double>> _anims;
@@ -54,7 +58,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen>
       vsync: this,
     );
     _anims = List.generate(
-      5,
+      6,
       (i) => CurvedAnimation(
         parent: _entranceCtrl,
         curve: Interval(i * 0.1, i * 0.1 + 0.6, curve: Curves.easeOutCubic),
@@ -201,7 +205,9 @@ class _CreateTaskScreenState extends State<CreateTaskScreen>
                             ),
                           ),
                           Text(
-                            'Fill in the details below',
+                            widget.ngoName != null
+                                ? widget.ngoName!
+                                : 'Fill in the details below',
                             style: GoogleFonts.dmSans(
                               color: _C.textSec,
                               fontSize: 12,
@@ -271,8 +277,9 @@ class _CreateTaskScreenState extends State<CreateTaskScreen>
                                   onTap: () {
                                     final cur =
                                         int.tryParse(_maxVolCtrl.text) ?? 1;
-                                    if (cur > 1)
+                                    if (cur > 1) {
                                       _maxVolCtrl.text = '${cur - 1}';
+                                    }
                                   },
                                 ),
                                 Expanded(
@@ -282,11 +289,13 @@ class _CreateTaskScreenState extends State<CreateTaskScreen>
                                     keyboardType: TextInputType.number,
                                     textAlign: TextAlign.center,
                                     validator: (v) {
-                                      if (v == null || v.trim().isEmpty)
+                                      if (v == null || v.trim().isEmpty) {
                                         return 'Required';
+                                      }
                                       final n = int.tryParse(v.trim());
-                                      if (n == null || n < 1)
+                                      if (n == null || n < 1) {
                                         return 'Must be ≥ 1';
+                                      }
                                       return null;
                                     },
                                   ),
@@ -324,12 +333,12 @@ class _CreateTaskScreenState extends State<CreateTaskScreen>
                                   borderRadius: BorderRadius.circular(14),
                                   border: Border.all(
                                     color: _deadline != null
-                                        ? _C.blue.withOpacity(0.5)
+                                        ? _C.blue.withValues(alpha: 0.5)
                                         : _C.border,
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withOpacity(0.04),
+                                      color: Colors.black.withValues(alpha: 0.04),
                                       blurRadius: 8,
                                     ),
                                   ],
@@ -370,11 +379,28 @@ class _CreateTaskScreenState extends State<CreateTaskScreen>
                           ),
                         ),
 
+                        const SizedBox(height: 20),
+
+                        // ── NGO Members Section ─────────────────────────────
+                        _SlideIn(
+                          anim: _anims[4],
+                          child: _NgoMembersSection(
+                            ngoId: widget.ngoId,
+                            userService: _userService,
+                            expanded: _membersExpanded,
+                            onToggle: () {
+                              setState(() {
+                                _membersExpanded = !_membersExpanded;
+                              });
+                            },
+                          ),
+                        ),
+
                         const SizedBox(height: 36),
 
                         // Submit Button
                         _SlideIn(
-                          anim: _anims[4],
+                          anim: _anims[5],
                           child: _loading
                               ? const Center(
                                   child: CircularProgressIndicator(
@@ -401,7 +427,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen>
                                       borderRadius: BorderRadius.circular(16),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: _C.blue.withOpacity(0.35),
+                                          color: _C.blue.withValues(alpha: 0.35),
                                           blurRadius: 20,
                                           offset: const Offset(0, 8),
                                         ),
@@ -570,7 +596,7 @@ class _CounterBtn extends StatelessWidget {
       decoration: BoxDecoration(
         color: _C.blueLight,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _C.blue.withOpacity(0.2)),
+        border: Border.all(color: _C.blue.withValues(alpha: 0.2)),
       ),
       child: Icon(icon, color: _C.blue, size: 20),
     ),
@@ -593,4 +619,340 @@ class _SlideIn extends StatelessWidget {
       child: child,
     ),
   );
+}
+
+// ─── NGO Members Section ─────────────────────────────────────────────────────
+class _NgoMembersSection extends StatelessWidget {
+  final String ngoId;
+  final UserService userService;
+  final bool expanded;
+  final VoidCallback onToggle;
+  const _NgoMembersSection({
+    required this.ngoId,
+    required this.userService,
+    required this.expanded,
+    required this.onToggle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header (tapable to expand/collapse)
+        GestureDetector(
+          onTap: onToggle,
+          behavior: HitTestBehavior.opaque,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _C.border),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: _C.blueLight,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(Icons.group_rounded, color: _C.blue, size: 18),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'NGO Members',
+                        style: GoogleFonts.dmSans(
+                          color: _C.textPri,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      Text(
+                        'View available volunteers',
+                        style: GoogleFonts.dmSans(
+                          color: _C.textSec,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                AnimatedRotation(
+                  turns: expanded ? 0.5 : 0,
+                  duration: const Duration(milliseconds: 250),
+                  child: Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    color: _C.textTer,
+                    size: 22,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // Expandable member list
+        AnimatedCrossFade(
+          firstChild: const SizedBox.shrink(),
+          secondChild: _MembersList(ngoId: ngoId, userService: userService),
+          crossFadeState:
+              expanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+          duration: const Duration(milliseconds: 300),
+        ),
+      ],
+    );
+  }
+}
+
+class _MembersList extends StatelessWidget {
+  final String ngoId;
+  final UserService userService;
+  const _MembersList({required this.ngoId, required this.userService});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<UserModel>>(
+      stream: userService.streamNgoMembers(ngoId),
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.all(20),
+            child: Center(
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: _C.blue,
+                ),
+              ),
+            ),
+          );
+        }
+
+        final members = snap.data ?? [];
+        final volunteers =
+            members.where((m) => m.role == 'volunteer').toList();
+        final admins = members.where((m) => m.role == 'admin').toList();
+
+        if (members.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.all(16),
+            child: Center(
+              child: Text(
+                'No members in this NGO yet.',
+                style: GoogleFonts.dmSans(
+                  color: _C.textTer,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          );
+        }
+
+        return Container(
+          margin: const EdgeInsets.only(top: 8),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: _C.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Summary row
+              Row(
+                children: [
+                  _MemberCountChip(
+                    label: 'Volunteers',
+                    count: volunteers.length,
+                    color: _C.green,
+                  ),
+                  const SizedBox(width: 8),
+                  _MemberCountChip(
+                    label: 'Admins',
+                    count: admins.length,
+                    color: _C.blue,
+                  ),
+                  const Spacer(),
+                  Text(
+                    '${members.length} total',
+                    style: GoogleFonts.dmSans(
+                      color: _C.textTer,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+              if (volunteers.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Container(height: 1, color: _C.divider),
+                const SizedBox(height: 8),
+                Text(
+                  'VOLUNTEERS',
+                  style: GoogleFonts.dmSans(
+                    color: _C.textTer,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ...volunteers.map((v) => _MemberTile(user: v)),
+              ],
+              if (admins.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Container(height: 1, color: _C.divider),
+                const SizedBox(height: 8),
+                Text(
+                  'ADMINS',
+                  style: GoogleFonts.dmSans(
+                    color: _C.textTer,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ...admins.map((a) => _MemberTile(user: a)),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _MemberCountChip extends StatelessWidget {
+  final String label;
+  final int count;
+  final Color color;
+  const _MemberCountChip({
+    required this.label,
+    required this.count,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '$count',
+            style: GoogleFonts.dmSans(
+              color: color,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: GoogleFonts.dmSans(
+              color: color,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MemberTile extends StatelessWidget {
+  final UserModel user;
+  const _MemberTile({required this.user});
+
+  @override
+  Widget build(BuildContext context) {
+    final isAdmin = user.role == 'admin';
+    final roleColor = isAdmin ? _C.blue : _C.green;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          // Avatar
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: roleColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Center(
+              child: Text(
+                user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
+                style: GoogleFonts.dmSans(
+                  color: roleColor,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  user.name,
+                  style: GoogleFonts.dmSans(
+                    color: _C.textPri,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  user.email,
+                  style: GoogleFonts.dmSans(
+                    color: _C.textTer,
+                    fontSize: 11,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: roleColor.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              isAdmin ? 'Admin' : 'Volunteer',
+              style: GoogleFonts.dmSans(
+                color: roleColor,
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

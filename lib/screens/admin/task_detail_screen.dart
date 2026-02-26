@@ -12,8 +12,6 @@ import 'admin_dashboard.dart' show taskUrgencyColor;
 // ─── Shared Design Tokens ─────────────────────────────────────────────────────
 class _C {
   static const bg = Color(0xFFEEF2F8);
-  static const bgCard = Colors.white;
-  static const heroCard = Color(0xFF0D1B3E);
   static const blue = Color(0xFF4A6CF7);
   static const blueLight = Color(0xFFEEF2FF);
   static const green = Color(0xFF22C55E);
@@ -205,8 +203,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   ),
                   builder: (_, aSnap) {
                     final assignments = aSnap.data ?? [];
-                    if (task.assignedVolunteers.isEmpty)
+                    if (task.assignedVolunteers.isEmpty) {
                       return const SizedBox.shrink();
+                    }
                     return _Section(
                       icon: Icons.group_rounded,
                       label: 'Assigned Volunteers',
@@ -437,7 +436,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
+                color: Colors.black.withValues(alpha: 0.1),
                 blurRadius: 30,
                 offset: const Offset(0, 10),
               ),
@@ -500,7 +499,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
-                              color: _C.red.withOpacity(0.3),
+                              color: _C.red.withValues(alpha: 0.3),
                               blurRadius: 12,
                               offset: const Offset(0, 4),
                             ),
@@ -579,7 +578,7 @@ class _ProgressHeroCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0D1B3E).withOpacity(0.3),
+            color: const Color(0xFF0D1B3E).withValues(alpha: 0.3),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -604,7 +603,7 @@ class _ProgressHeroCard extends StatelessWidget {
                         height: 88,
                         child: CircularProgressIndicator(
                           value: task.mainProgress / 100,
-                          backgroundColor: Colors.white.withOpacity(0.12),
+                          backgroundColor: Colors.white.withValues(alpha: 0.12),
                           valueColor: AlwaysStoppedAnimation(urgency),
                           strokeWidth: 7,
                           strokeCap: StrokeCap.round,
@@ -624,7 +623,7 @@ class _ProgressHeroCard extends StatelessWidget {
                           Text(
                             'done',
                             style: GoogleFonts.dmSans(
-                              color: urgency.withOpacity(0.6),
+                              color: urgency.withValues(alpha: 0.6),
                               fontSize: 10,
                             ),
                           ),
@@ -641,7 +640,7 @@ class _ProgressHeroCard extends StatelessWidget {
                       Text(
                         task.description,
                         style: GoogleFonts.dmSans(
-                          color: Colors.white.withOpacity(0.7),
+                          color: Colors.white.withValues(alpha: 0.7),
                           fontSize: 13,
                           height: 1.5,
                         ),
@@ -668,12 +667,12 @@ class _ProgressHeroCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             decoration: BoxDecoration(
-              color: urgency.withOpacity(0.1),
+              color: urgency.withValues(alpha: 0.1),
               borderRadius: const BorderRadius.only(
                 bottomLeft: Radius.circular(24),
                 bottomRight: Radius.circular(24),
               ),
-              border: Border(top: BorderSide(color: urgency.withOpacity(0.2))),
+              border: Border(top: BorderSide(color: urgency.withValues(alpha: 0.2))),
             ),
             child: Row(
               children: [
@@ -684,7 +683,7 @@ class _ProgressHeroCard extends StatelessWidget {
                     color: urgency,
                     shape: BoxShape.circle,
                     boxShadow: [
-                      BoxShadow(color: urgency.withOpacity(0.5), blurRadius: 6),
+                      BoxShadow(color: urgency.withValues(alpha: 0.5), blurRadius: 6),
                     ],
                   ),
                 ),
@@ -704,7 +703,7 @@ class _ProgressHeroCard extends StatelessWidget {
                       ? '${(remaining / 60).floor()}h ${remaining % 60}m left'
                       : 'Overdue',
                   style: GoogleFonts.dmSans(
-                    color: urgency.withOpacity(0.7),
+                    color: urgency.withValues(alpha: 0.7),
                     fontSize: 12,
                   ),
                 ),
@@ -720,7 +719,7 @@ class _ProgressHeroCard extends StatelessWidget {
 class _MetaRow extends StatelessWidget {
   final IconData icon;
   final String label;
-  const _MetaRow(this.icon, this.label, {super.key});
+  const _MetaRow(this.icon, this.label);
   @override
   Widget build(BuildContext context) => Row(
     children: [
@@ -844,7 +843,7 @@ class _AssignedVolunteerRowState extends State<_AssignedVolunteerRow> {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: _C.border),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6),
         ],
       ),
       child: Row(
@@ -1033,7 +1032,7 @@ class _InviteCheckRow extends StatelessWidget {
         color: selected ? _C.blueLight : Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: selected ? _C.blue.withOpacity(0.4) : _C.border,
+          color: selected ? _C.blue.withValues(alpha: 0.4) : _C.border,
         ),
       ),
       child: Row(
@@ -1109,7 +1108,7 @@ class _InlineRequestCardState extends State<_InlineRequestCard> {
       decoration: BoxDecoration(
         color: _C.orangeLight,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _C.orange.withOpacity(0.3)),
+        border: Border.all(color: _C.orange.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1134,7 +1133,7 @@ class _InlineRequestCardState extends State<_InlineRequestCard> {
                   vertical: 5,
                 ),
                 decoration: BoxDecoration(
-                  color: _C.orange.withOpacity(0.15),
+                  color: _C.orange.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -1182,7 +1181,7 @@ class _InlineRequestCardState extends State<_InlineRequestCard> {
                           padding: const EdgeInsets.symmetric(vertical: 9),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: _C.red.withOpacity(0.4)),
+                            border: Border.all(color: _C.red.withValues(alpha: 0.4)),
                             color: _C.redLight,
                           ),
                           child: Row(
@@ -1218,7 +1217,7 @@ class _InlineRequestCardState extends State<_InlineRequestCard> {
                             borderRadius: BorderRadius.circular(10),
                             boxShadow: [
                               BoxShadow(
-                                color: _C.green.withOpacity(0.3),
+                                color: _C.green.withValues(alpha: 0.3),
                                 blurRadius: 10,
                                 offset: const Offset(0, 3),
                               ),
@@ -1346,7 +1345,7 @@ class _GradientBtnState extends State<_GradientBtn> {
           borderRadius: BorderRadius.circular(14),
           boxShadow: [
             BoxShadow(
-              color: widget.color1.withOpacity(0.3),
+              color: widget.color1.withValues(alpha: 0.3),
               blurRadius: 14,
               offset: const Offset(0, 5),
             ),
@@ -1383,8 +1382,8 @@ class _VolAvatar extends StatelessWidget {
     height: 36,
     decoration: BoxDecoration(
       shape: BoxShape.circle,
-      color: color.withOpacity(0.12),
-      border: Border.all(color: color.withOpacity(0.2)),
+      color: color.withValues(alpha: 0.12),
+      border: Border.all(color: color.withValues(alpha: 0.2)),
     ),
     child: Center(
       child: Text(
