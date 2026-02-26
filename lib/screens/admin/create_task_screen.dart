@@ -3,6 +3,23 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../services/task_service.dart';
 
+// ─── Shared Design Tokens (mirroring admin_dashboard.dart) ────────────────────
+class _C {
+  static const bg = Color(0xFFEEF2F8);
+  static const bgCard = Colors.white;
+  static const heroCard = Color(0xFF0D1B3E);
+  static const blue = Color(0xFF4A6CF7);
+  static const blueLight = Color(0xFFEEF2FF);
+  static const green = Color(0xFF22C55E);
+  static const orange = Color(0xFFF59E0B);
+  static const red = Color(0xFFEF4444);
+  static const textPri = Color(0xFF0D1B3E);
+  static const textSec = Color(0xFF6B7280);
+  static const textTer = Color(0xFFB0B7C3);
+  static const border = Color(0xFFE5E9F0);
+  static const divider = Color(0xFFF1F4F9);
+}
+
 class CreateTaskScreen extends StatefulWidget {
   final String adminId;
   final String ngoId;
@@ -63,10 +80,10 @@ class _CreateTaskScreenState extends State<CreateTaskScreen>
       firstDate: now,
       lastDate: now.add(const Duration(days: 365)),
       builder: (ctx, child) => Theme(
-        data: ThemeData.dark().copyWith(
-          colorScheme: const ColorScheme.dark(
-            primary: Color(0xFF42A5F5),
-            surface: Color(0xFF0E2419),
+        data: ThemeData.light().copyWith(
+          colorScheme: const ColorScheme.light(
+            primary: Color(0xFF4A6CF7),
+            surface: Colors.white,
           ),
         ),
         child: child!,
@@ -78,10 +95,10 @@ class _CreateTaskScreenState extends State<CreateTaskScreen>
       context: context,
       initialTime: const TimeOfDay(hour: 18, minute: 0),
       builder: (ctx, child) => Theme(
-        data: ThemeData.dark().copyWith(
-          colorScheme: const ColorScheme.dark(
-            primary: Color(0xFF42A5F5),
-            surface: Color(0xFF0E2419),
+        data: ThemeData.light().copyWith(
+          colorScheme: const ColorScheme.light(
+            primary: Color(0xFF4A6CF7),
+            surface: Colors.white,
           ),
         ),
         child: child!,
@@ -103,11 +120,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen>
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_deadline == null) {
-      _snack(
-        'Please select a deadline.',
-        const Color(0xFFFF9800),
-        Icons.schedule_rounded,
-      );
+      _snack('Please select a deadline.', _C.orange, Icons.schedule_rounded);
       return;
     }
     setState(() => _loading = true);
@@ -123,13 +136,13 @@ class _CreateTaskScreenState extends State<CreateTaskScreen>
       if (!mounted) return;
       _snack(
         'Task created successfully!',
-        const Color(0xFF4CAF50),
+        _C.green,
         Icons.check_circle_rounded,
       );
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
-      _snack('Error: $e', const Color(0xFFF44336), Icons.error_rounded);
+      _snack('Error: $e', _C.red, Icons.error_rounded);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -159,281 +172,270 @@ class _CreateTaskScreenState extends State<CreateTaskScreen>
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.light,
+        statusBarIconBrightness: Brightness.dark,
       ),
       child: Scaffold(
-        backgroundColor: const Color(0xFF06110B),
-        body: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFF0E2419), Color(0xFF091A10), Color(0xFF06110B)],
-            ),
-          ),
-          child: SafeArea(
-            child: Column(
-              children: [
-                // ── App Bar ────────────────────────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 8, 16, 0),
-                  child: Row(
-                    children: [
-                      _BackButton(onTap: () => Navigator.pop(context)),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'New Task',
-                              style: GoogleFonts.dmSans(
-                                color: Colors.white,
-                                fontSize: 20,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.3,
-                              ),
-                            ),
-                            Text(
-                              'Fill in the details below',
-                              style: GoogleFonts.dmSans(
-                                color: Colors.white.withOpacity(0.4),
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 8),
-
-                // ── Form ───────────────────────────────────────────────────
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-                    child: Form(
-                      key: _formKey,
+        backgroundColor: _C.bg,
+        body: SafeArea(
+          child: Column(
+            children: [
+              // ── App Bar ────────────────────────────────────────────────
+              Container(
+                color: Colors.white,
+                padding: const EdgeInsets.fromLTRB(8, 8, 16, 12),
+                child: Row(
+                  children: [
+                    _BackButton(onTap: () => Navigator.pop(context)),
+                    const SizedBox(width: 4),
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Task Title
-                          _SlideIn(
-                            anim: _anims[0],
-                            child: _FormSection(
-                              label: 'Task Title',
-                              icon: Icons.title_rounded,
-                              child: _DarkField(
-                                controller: _titleCtrl,
-                                hint: 'e.g. Clean the beach',
-                                validator: (v) =>
-                                    (v == null || v.trim().isEmpty)
-                                    ? 'Title is required'
-                                    : null,
-                              ),
+                          Text(
+                            'New Task',
+                            style: GoogleFonts.dmSans(
+                              color: _C.textPri,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.3,
                             ),
                           ),
-                          const SizedBox(height: 20),
-
-                          // Description
-                          _SlideIn(
-                            anim: _anims[1],
-                            child: _FormSection(
-                              label: 'Description',
-                              icon: Icons.description_rounded,
-                              child: _DarkField(
-                                controller: _descCtrl,
-                                hint: 'Describe what needs to be done...',
-                                maxLines: 4,
-                                validator: (v) =>
-                                    (v == null || v.trim().isEmpty)
-                                    ? 'Description is required'
-                                    : null,
-                              ),
+                          Text(
+                            'Fill in the details below',
+                            style: GoogleFonts.dmSans(
+                              color: _C.textSec,
+                              fontSize: 12,
                             ),
-                          ),
-                          const SizedBox(height: 20),
-
-                          // Max Volunteers
-                          _SlideIn(
-                            anim: _anims[2],
-                            child: _FormSection(
-                              label: 'Max Volunteers',
-                              icon: Icons.people_rounded,
-                              child: Row(
-                                children: [
-                                  // Decrement
-                                  _CounterBtn(
-                                    icon: Icons.remove_rounded,
-                                    onTap: () {
-                                      final cur =
-                                          int.tryParse(_maxVolCtrl.text) ?? 1;
-                                      if (cur > 1)
-                                        _maxVolCtrl.text = '${cur - 1}';
-                                    },
-                                  ),
-                                  Expanded(
-                                    child: _DarkField(
-                                      controller: _maxVolCtrl,
-                                      hint: '1',
-                                      keyboardType: TextInputType.number,
-                                      textAlign: TextAlign.center,
-                                      validator: (v) {
-                                        if (v == null || v.trim().isEmpty)
-                                          return 'Required';
-                                        final n = int.tryParse(v.trim());
-                                        if (n == null || n < 1)
-                                          return 'Must be ≥ 1';
-                                        return null;
-                                      },
-                                    ),
-                                  ),
-                                  // Increment
-                                  _CounterBtn(
-                                    icon: Icons.add_rounded,
-                                    onTap: () {
-                                      final cur =
-                                          int.tryParse(_maxVolCtrl.text) ?? 1;
-                                      _maxVolCtrl.text = '${cur + 1}';
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-
-                          // Deadline
-                          _SlideIn(
-                            anim: _anims[3],
-                            child: _FormSection(
-                              label: 'Deadline',
-                              icon: Icons.event_rounded,
-                              child: GestureDetector(
-                                onTap: _pickDeadline,
-                                child: Container(
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 15,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.05),
-                                    borderRadius: BorderRadius.circular(14),
-                                    border: Border.all(
-                                      color: _deadline != null
-                                          ? const Color(
-                                              0xFF42A5F5,
-                                            ).withOpacity(0.5)
-                                          : Colors.white.withOpacity(0.12),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        Icons.calendar_today_rounded,
-                                        color: _deadline != null
-                                            ? const Color(0xFF42A5F5)
-                                            : Colors.white.withOpacity(0.3),
-                                        size: 18,
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Text(
-                                          _deadline == null
-                                              ? 'Select date & time'
-                                              : '${_deadline!.day}/${_deadline!.month}/${_deadline!.year}  ${_deadline!.hour.toString().padLeft(2, '0')}:${_deadline!.minute.toString().padLeft(2, '0')}',
-                                          style: GoogleFonts.dmSans(
-                                            color: _deadline == null
-                                                ? Colors.white.withOpacity(0.3)
-                                                : Colors.white,
-                                            fontSize: 14,
-                                          ),
-                                        ),
-                                      ),
-                                      if (_deadline != null)
-                                        Icon(
-                                          Icons.edit_rounded,
-                                          size: 14,
-                                          color: Colors.white.withOpacity(0.3),
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-
-                          const SizedBox(height: 36),
-
-                          // Submit Button
-                          _SlideIn(
-                            anim: _anims[4],
-                            child: _loading
-                                ? const Center(
-                                    child: CircularProgressIndicator(
-                                      color: Color(0xFF42A5F5),
-                                      strokeWidth: 2.5,
-                                    ),
-                                  )
-                                : GestureDetector(
-                                    onTap: _submit,
-                                    child: Container(
-                                      width: double.infinity,
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 17,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        gradient: const LinearGradient(
-                                          colors: [
-                                            Color(0xFF42A5F5),
-                                            Color(0xFF1565C0),
-                                          ],
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
-                                        ),
-                                        borderRadius: BorderRadius.circular(16),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: const Color(
-                                              0xFF42A5F5,
-                                            ).withOpacity(0.4),
-                                            blurRadius: 20,
-                                            offset: const Offset(0, 8),
-                                          ),
-                                        ],
-                                      ),
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          const Icon(
-                                            Icons.add_task_rounded,
-                                            color: Colors.white,
-                                            size: 20,
-                                          ),
-                                          const SizedBox(width: 10),
-                                          Text(
-                                            'Create Task',
-                                            style: GoogleFonts.dmSans(
-                                              color: Colors.white,
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
                           ),
                         ],
                       ),
                     ),
+                  ],
+                ),
+              ),
+
+              // ── Form ───────────────────────────────────────────────────
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Task Title
+                        _SlideIn(
+                          anim: _anims[0],
+                          child: _FormSection(
+                            label: 'Task Title',
+                            icon: Icons.title_rounded,
+                            child: _LightField(
+                              controller: _titleCtrl,
+                              hint: 'e.g. Clean the beach',
+                              validator: (v) => (v == null || v.trim().isEmpty)
+                                  ? 'Title is required'
+                                  : null,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // Description
+                        _SlideIn(
+                          anim: _anims[1],
+                          child: _FormSection(
+                            label: 'Description',
+                            icon: Icons.description_rounded,
+                            child: _LightField(
+                              controller: _descCtrl,
+                              hint: 'Describe what needs to be done...',
+                              maxLines: 4,
+                              validator: (v) => (v == null || v.trim().isEmpty)
+                                  ? 'Description is required'
+                                  : null,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // Max Volunteers
+                        _SlideIn(
+                          anim: _anims[2],
+                          child: _FormSection(
+                            label: 'Max Volunteers',
+                            icon: Icons.people_rounded,
+                            child: Row(
+                              children: [
+                                _CounterBtn(
+                                  icon: Icons.remove_rounded,
+                                  onTap: () {
+                                    final cur =
+                                        int.tryParse(_maxVolCtrl.text) ?? 1;
+                                    if (cur > 1)
+                                      _maxVolCtrl.text = '${cur - 1}';
+                                  },
+                                ),
+                                Expanded(
+                                  child: _LightField(
+                                    controller: _maxVolCtrl,
+                                    hint: '1',
+                                    keyboardType: TextInputType.number,
+                                    textAlign: TextAlign.center,
+                                    validator: (v) {
+                                      if (v == null || v.trim().isEmpty)
+                                        return 'Required';
+                                      final n = int.tryParse(v.trim());
+                                      if (n == null || n < 1)
+                                        return 'Must be ≥ 1';
+                                      return null;
+                                    },
+                                  ),
+                                ),
+                                _CounterBtn(
+                                  icon: Icons.add_rounded,
+                                  onTap: () {
+                                    final cur =
+                                        int.tryParse(_maxVolCtrl.text) ?? 1;
+                                    _maxVolCtrl.text = '${cur + 1}';
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // Deadline
+                        _SlideIn(
+                          anim: _anims[3],
+                          child: _FormSection(
+                            label: 'Deadline',
+                            icon: Icons.event_rounded,
+                            child: GestureDetector(
+                              onTap: _pickDeadline,
+                              child: Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 15,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: _deadline != null
+                                        ? _C.blue.withOpacity(0.5)
+                                        : _C.border,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.04),
+                                      blurRadius: 8,
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.calendar_today_rounded,
+                                      color: _deadline != null
+                                          ? _C.blue
+                                          : _C.textTer,
+                                      size: 18,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        _deadline == null
+                                            ? 'Select date & time'
+                                            : '${_deadline!.day}/${_deadline!.month}/${_deadline!.year}  ${_deadline!.hour.toString().padLeft(2, '0')}:${_deadline!.minute.toString().padLeft(2, '0')}',
+                                        style: GoogleFonts.dmSans(
+                                          color: _deadline == null
+                                              ? _C.textTer
+                                              : _C.textPri,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ),
+                                    if (_deadline != null)
+                                      Icon(
+                                        Icons.edit_rounded,
+                                        size: 14,
+                                        color: _C.textTer,
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 36),
+
+                        // Submit Button
+                        _SlideIn(
+                          anim: _anims[4],
+                          child: _loading
+                              ? const Center(
+                                  child: CircularProgressIndicator(
+                                    color: _C.blue,
+                                    strokeWidth: 2.5,
+                                  ),
+                                )
+                              : GestureDetector(
+                                  onTap: _submit,
+                                  child: Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 17,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        colors: [
+                                          Color(0xFF4A6CF7),
+                                          Color(0xFF1A2B5E),
+                                        ],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
+                                      borderRadius: BorderRadius.circular(16),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: _C.blue.withOpacity(0.35),
+                                          blurRadius: 20,
+                                          offset: const Offset(0, 8),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(
+                                          Icons.add_task_rounded,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Text(
+                                          'Create Task',
+                                          style: GoogleFonts.dmSans(
+                                            color: Colors.white,
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -451,15 +453,11 @@ class _BackButton extends StatelessWidget {
     icon: Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.07),
+        color: _C.divider,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: _C.border),
       ),
-      child: const Icon(
-        Icons.arrow_back_rounded,
-        color: Colors.white,
-        size: 18,
-      ),
+      child: Icon(Icons.arrow_back_rounded, color: _C.textPri, size: 18),
     ),
   );
 }
@@ -481,12 +479,12 @@ class _FormSection extends StatelessWidget {
     children: [
       Row(
         children: [
-          Icon(icon, size: 14, color: const Color(0xFF42A5F5).withOpacity(0.8)),
+          Icon(icon, size: 14, color: _C.blue),
           const SizedBox(width: 7),
           Text(
             label,
             style: GoogleFonts.dmSans(
-              color: Colors.white.withOpacity(0.6),
+              color: _C.textSec,
               fontSize: 12,
               fontWeight: FontWeight.w600,
               letterSpacing: 0.3,
@@ -500,8 +498,8 @@ class _FormSection extends StatelessWidget {
   );
 }
 
-// ─── Dark Field ───────────────────────────────────────────────────────────────
-class _DarkField extends StatelessWidget {
+// ─── Light Field ─────────────────────────────────────────────────────────────
+class _LightField extends StatelessWidget {
   final TextEditingController controller;
   final String hint;
   final int maxLines;
@@ -509,7 +507,7 @@ class _DarkField extends StatelessWidget {
   final TextAlign textAlign;
   final String? Function(String?)? validator;
 
-  const _DarkField({
+  const _LightField({
     required this.controller,
     required this.hint,
     this.maxLines = 1,
@@ -525,39 +523,33 @@ class _DarkField extends StatelessWidget {
     keyboardType: keyboardType,
     textAlign: textAlign,
     validator: validator,
-    style: GoogleFonts.dmSans(color: Colors.white, fontSize: 14),
+    style: GoogleFonts.dmSans(color: _C.textPri, fontSize: 14),
     decoration: InputDecoration(
       hintText: hint,
-      hintStyle: GoogleFonts.dmSans(
-        color: Colors.white.withOpacity(0.25),
-        fontSize: 14,
-      ),
+      hintStyle: GoogleFonts.dmSans(color: _C.textTer, fontSize: 14),
       filled: true,
-      fillColor: Colors.white.withOpacity(0.05),
+      fillColor: Colors.white,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: Colors.white.withOpacity(0.12)),
+        borderSide: const BorderSide(color: _C.border),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: Colors.white.withOpacity(0.12)),
+        borderSide: const BorderSide(color: _C.border),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Color(0xFF42A5F5), width: 1.5),
+        borderSide: const BorderSide(color: _C.blue, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Color(0xFFF44336)),
+        borderSide: const BorderSide(color: _C.red),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Color(0xFFF44336), width: 1.5),
+        borderSide: const BorderSide(color: _C.red, width: 1.5),
       ),
-      errorStyle: GoogleFonts.dmSans(
-        color: const Color(0xFFFF6B6B),
-        fontSize: 11,
-      ),
+      errorStyle: GoogleFonts.dmSans(color: _C.red, fontSize: 11),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     ),
   );
@@ -576,11 +568,11 @@ class _CounterBtn extends StatelessWidget {
       width: 40,
       height: 48,
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.06),
+        color: _C.blueLight,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: _C.blue.withOpacity(0.2)),
       ),
-      child: Icon(icon, color: const Color(0xFF42A5F5), size: 20),
+      child: Icon(icon, color: _C.blue, size: 20),
     ),
   );
 }

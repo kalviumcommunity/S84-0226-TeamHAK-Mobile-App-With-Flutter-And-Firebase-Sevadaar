@@ -9,6 +9,26 @@ import '../../services/task_service.dart';
 import '../../services/user_service.dart';
 import 'admin_dashboard.dart' show taskUrgencyColor;
 
+// ─── Shared Design Tokens ─────────────────────────────────────────────────────
+class _C {
+  static const bg = Color(0xFFEEF2F8);
+  static const bgCard = Colors.white;
+  static const heroCard = Color(0xFF0D1B3E);
+  static const blue = Color(0xFF4A6CF7);
+  static const blueLight = Color(0xFFEEF2FF);
+  static const green = Color(0xFF22C55E);
+  static const greenLight = Color(0xFFECFDF5);
+  static const orange = Color(0xFFF59E0B);
+  static const orangeLight = Color(0xFFFFFBEB);
+  static const red = Color(0xFFEF4444);
+  static const redLight = Color(0xFFFEF2F2);
+  static const textPri = Color(0xFF0D1B3E);
+  static const textSec = Color(0xFF6B7280);
+  static const textTer = Color(0xFFB0B7C3);
+  static const border = Color(0xFFE5E9F0);
+  static const divider = Color(0xFFF1F4F9);
+}
+
 class TaskDetailScreen extends StatefulWidget {
   final String taskId;
   final String adminId;
@@ -64,24 +84,22 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.light,
+        statusBarIconBrightness: Brightness.dark,
       ),
       child: Scaffold(
-        backgroundColor: const Color(0xFF06110B),
+        backgroundColor: _C.bg,
         body: StreamBuilder<TaskModel?>(
           stream: widget.taskService.streamTask(widget.taskId),
           builder: (context, snap) {
             if (snap.connectionState == ConnectionState.waiting) {
-              return const _BgContainer(child: Center(child: _Loader()));
+              return const Center(child: _Loader());
             }
             final task = snap.data;
             if (task == null) {
-              return _BgContainer(
-                child: Center(
-                  child: Text(
-                    'Task not found.',
-                    style: GoogleFonts.dmSans(color: Colors.white54),
-                  ),
+              return Center(
+                child: Text(
+                  'Task not found.',
+                  style: GoogleFonts.dmSans(color: _C.textSec),
                 ),
               );
             }
@@ -95,303 +113,299 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   Widget _buildBody(TaskModel task) {
     final urgency = taskUrgencyColor(task.createdAt, task.deadline);
 
-    return _BgContainer(
-      child: SafeArea(
-        child: Column(
-          children: [
-            // ── App Bar ──────────────────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8, 8, 16, 0),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.07),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.1),
-                        ),
-                      ),
-                      child: const Icon(
-                        Icons.arrow_back_rounded,
-                        color: Colors.white,
-                        size: 18,
-                      ),
+    return SafeArea(
+      child: Column(
+        children: [
+          // ── App Bar ────────────────────────────────────────────────────
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.fromLTRB(8, 8, 16, 12),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: _C.divider,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: _C.border),
                     ),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      task.title,
-                      style: GoogleFonts.dmSans(
-                        color: Colors.white,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.3,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    child: Icon(
+                      Icons.arrow_back_rounded,
+                      color: _C.textPri,
+                      size: 18,
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  _StatusBadge(status: task.status),
-                ],
-              ),
+                  onPressed: () => Navigator.pop(context),
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    task.title,
+                    style: GoogleFonts.dmSans(
+                      color: _C.textPri,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.3,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _StatusBadge(status: task.status),
+              ],
             ),
+          ),
 
-            // ── Content ──────────────────────────────────────────────────────
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
-                children: [
-                  // Progress hero card
-                  _ProgressHeroCard(task: task, urgency: urgency),
-                  const SizedBox(height: 20),
+          // ── Content ──────────────────────────────────────────────────
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+              children: [
+                // Progress hero card
+                _ProgressHeroCard(task: task, urgency: urgency),
+                const SizedBox(height: 20),
 
-                  // Pending requests
-                  StreamBuilder<List<ProgressRequestModel>>(
-                    stream: widget.taskService.streamPendingRequestsForAdmin(
-                      widget.adminId,
-                    ),
-                    builder: (_, reqSnap) {
-                      final taskReqs = (reqSnap.data ?? [])
-                          .where((r) => r.taskId == widget.taskId)
-                          .toList();
-                      if (taskReqs.isEmpty) return const SizedBox.shrink();
-                      return _Section(
-                        icon: Icons.pending_actions_rounded,
-                        label: 'Pending Requests',
-                        color: const Color(0xFFFF9800),
-                        count: taskReqs.length,
-                        child: Column(
-                          children: taskReqs
-                              .map(
-                                (r) => _InlineRequestCard(
-                                  request: r,
-                                  taskService: widget.taskService,
-                                  userService: widget.userService,
-                                ),
-                              )
-                              .toList(),
-                        ),
-                      );
-                    },
+                // Pending requests
+                StreamBuilder<List<ProgressRequestModel>>(
+                  stream: widget.taskService.streamPendingRequestsForAdmin(
+                    widget.adminId,
                   ),
-
-                  // Assigned volunteers
-                  StreamBuilder<List<TaskAssignmentModel>>(
-                    stream: widget.taskService.streamTaskAssignments(
-                      widget.taskId,
-                    ),
-                    builder: (_, aSnap) {
-                      final assignments = aSnap.data ?? [];
-                      if (task.assignedVolunteers.isEmpty)
-                        return const SizedBox.shrink();
-                      return _Section(
-                        icon: Icons.group_rounded,
-                        label: 'Assigned Volunteers',
-                        color: const Color(0xFF4CAF50),
-                        count: task.assignedVolunteers.length,
-                        child: Column(
-                          children: task.assignedVolunteers.map((uid) {
-                            final assignment = assignments
-                                .where((a) => a.volunteerId == uid)
-                                .firstOrNull;
-                            return _AssignedVolunteerRow(
-                              volunteerId: uid,
-                              progress: assignment?.individualProgress ?? 0.0,
-                              userService: widget.userService,
-                              onRemove: task.status != 'completed'
-                                  ? () => _confirmRemove(task, uid)
-                                  : null,
-                            );
-                          }).toList(),
-                        ),
-                      );
-                    },
-                  ),
-
-                  // Pending invites
-                  if (task.pendingInvites.isNotEmpty &&
-                      task.status == 'inviting')
-                    _Section(
-                      icon: Icons.mail_outline_rounded,
-                      label: 'Pending Invites',
-                      color: const Color(0xFF42A5F5),
-                      count: task.pendingInvites.length,
+                  builder: (_, reqSnap) {
+                    final taskReqs = (reqSnap.data ?? [])
+                        .where((r) => r.taskId == widget.taskId)
+                        .toList();
+                    if (taskReqs.isEmpty) return const SizedBox.shrink();
+                    return _Section(
+                      icon: Icons.pending_actions_rounded,
+                      label: 'Pending Requests',
+                      color: _C.orange,
+                      bgColor: _C.orangeLight,
+                      count: taskReqs.length,
                       child: Column(
-                        children: task.pendingInvites
+                        children: taskReqs
                             .map(
-                              (uid) => _PendingInviteRow(
-                                volunteerId: uid,
+                              (r) => _InlineRequestCard(
+                                request: r,
+                                taskService: widget.taskService,
                                 userService: widget.userService,
-                                onCancel: () => widget.taskService.cancelInvite(
-                                  widget.taskId,
-                                  uid,
-                                ),
                               ),
                             )
                             .toList(),
                       ),
-                    ),
+                    );
+                  },
+                ),
 
-                  // Invite volunteers
-                  if (task.status == 'inviting' &&
-                      task.assignedVolunteers.length < task.maxVolunteers)
-                    _Section(
-                      icon: Icons.person_add_alt_1_rounded,
-                      label: 'Invite Volunteers',
-                      color: Colors.white54,
-                      child: StreamBuilder<List<UserModel>>(
-                        stream: widget.taskService.streamNgoVolunteers(
-                          widget.ngoId,
-                        ),
-                        builder: (_, volSnap) {
-                          final allVols = volSnap.data ?? [];
-                          final already = {
-                            ...task.assignedVolunteers,
-                            ...task.pendingInvites,
-                            ...task.declinedBy,
-                          };
-                          final eligible = allVols
-                              .where((v) => !already.contains(v.uid))
-                              .toList();
-
-                          if (eligible.isEmpty) {
-                            return Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: Text(
-                                'All NGO volunteers have been invited.',
-                                style: GoogleFonts.dmSans(
-                                  color: Colors.white38,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            );
-                          }
-
-                          return Column(
-                            children: [
-                              ...eligible.map(
-                                (v) => _InviteCheckRow(
-                                  volunteer: v,
-                                  selected: _selectedToInvite.contains(v.uid),
-                                  onToggle: (val) => setState(() {
-                                    val
-                                        ? _selectedToInvite.add(v.uid)
-                                        : _selectedToInvite.remove(v.uid);
-                                  }),
-                                ),
-                              ),
-                              if (_selectedToInvite.isNotEmpty) ...[
-                                const SizedBox(height: 10),
-                                _GradientBtn(
-                                  label:
-                                      'Send Invites (${_selectedToInvite.length})',
-                                  icon: Icons.send_rounded,
-                                  onTap: _sendInvites,
-                                ),
-                              ],
-                            ],
-                          );
-                        },
-                      ),
-                    ),
-
-                  // Complete task
-                  if (task.status != 'completed')
-                    _Section(
-                      icon: Icons.flag_rounded,
-                      label: 'Complete Task',
-                      color: const Color(0xFF4CAF50),
+                // Assigned volunteers
+                StreamBuilder<List<TaskAssignmentModel>>(
+                  stream: widget.taskService.streamTaskAssignments(
+                    widget.taskId,
+                  ),
+                  builder: (_, aSnap) {
+                    final assignments = aSnap.data ?? [];
+                    if (task.assignedVolunteers.isEmpty)
+                      return const SizedBox.shrink();
+                    return _Section(
+                      icon: Icons.group_rounded,
+                      label: 'Assigned Volunteers',
+                      color: _C.green,
+                      bgColor: _C.greenLight,
+                      count: task.assignedVolunteers.length,
                       child: Column(
-                        children: [
-                          TextFormField(
-                            controller: _finalNoteCtrl,
-                            maxLines: 3,
-                            style: GoogleFonts.dmSans(
-                              color: Colors.white,
-                              fontSize: 13,
+                        children: task.assignedVolunteers.map((uid) {
+                          final assignment = assignments
+                              .where((a) => a.volunteerId == uid)
+                              .firstOrNull;
+                          return _AssignedVolunteerRow(
+                            volunteerId: uid,
+                            progress: assignment?.individualProgress ?? 0.0,
+                            userService: widget.userService,
+                            onRemove: task.status != 'completed'
+                                ? () => _confirmRemove(task, uid)
+                                : null,
+                          );
+                        }).toList(),
+                      ),
+                    );
+                  },
+                ),
+
+                // Pending invites
+                if (task.pendingInvites.isNotEmpty && task.status == 'inviting')
+                  _Section(
+                    icon: Icons.mail_outline_rounded,
+                    label: 'Pending Invites',
+                    color: _C.blue,
+                    bgColor: _C.blueLight,
+                    count: task.pendingInvites.length,
+                    child: Column(
+                      children: task.pendingInvites
+                          .map(
+                            (uid) => _PendingInviteRow(
+                              volunteerId: uid,
+                              userService: widget.userService,
+                              onCancel: () => widget.taskService.cancelInvite(
+                                widget.taskId,
+                                uid,
+                              ),
                             ),
-                            decoration: InputDecoration(
-                              hintText: 'Final note (optional)...',
-                              hintStyle: GoogleFonts.dmSans(
-                                color: Colors.white.withOpacity(0.25),
+                          )
+                          .toList(),
+                    ),
+                  ),
+
+                // Invite volunteers
+                if (task.status == 'inviting' &&
+                    task.assignedVolunteers.length < task.maxVolunteers)
+                  _Section(
+                    icon: Icons.person_add_alt_1_rounded,
+                    label: 'Invite Volunteers',
+                    color: _C.textSec,
+                    bgColor: _C.divider,
+                    child: StreamBuilder<List<UserModel>>(
+                      stream: widget.taskService.streamNgoVolunteers(
+                        widget.ngoId,
+                      ),
+                      builder: (_, volSnap) {
+                        final allVols = volSnap.data ?? [];
+                        final already = {
+                          ...task.assignedVolunteers,
+                          ...task.pendingInvites,
+                          ...task.declinedBy,
+                        };
+                        final eligible = allVols
+                            .where((v) => !already.contains(v.uid))
+                            .toList();
+
+                        if (eligible.isEmpty) {
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              'All NGO volunteers have been invited.',
+                              style: GoogleFonts.dmSans(
+                                color: _C.textTer,
                                 fontSize: 13,
                               ),
-                              filled: true,
-                              fillColor: Colors.white.withOpacity(0.04),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(14),
-                                borderSide: BorderSide(
-                                  color: Colors.white.withOpacity(0.12),
-                                ),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(14),
-                                borderSide: BorderSide(
-                                  color: Colors.white.withOpacity(0.12),
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(14),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFF4CAF50),
-                                  width: 1.5,
-                                ),
-                              ),
-                              contentPadding: const EdgeInsets.all(14),
                             ),
-                          ),
-                          const SizedBox(height: 12),
-                          _completingTask
-                              ? const Center(child: _Loader())
-                              : _GradientBtn(
-                                  label: 'Mark as Completed',
-                                  icon: Icons.check_circle_outline_rounded,
-                                  color1: const Color(0xFF4CAF50),
-                                  color2: const Color(0xFF2E7D32),
-                                  onTap: () => _completeTask(task),
-                                ),
-                        ],
-                      ),
-                    ),
+                          );
+                        }
 
-                  // Final note (completed)
-                  if (task.status == 'completed' &&
-                      task.adminFinalNote.isNotEmpty)
-                    _Section(
-                      icon: Icons.sticky_note_2_outlined,
-                      label: 'Final Note',
-                      color: Colors.white54,
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.04),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.08),
+                        return Column(
+                          children: [
+                            ...eligible.map(
+                              (v) => _InviteCheckRow(
+                                volunteer: v,
+                                selected: _selectedToInvite.contains(v.uid),
+                                onToggle: (val) => setState(() {
+                                  val
+                                      ? _selectedToInvite.add(v.uid)
+                                      : _selectedToInvite.remove(v.uid);
+                                }),
+                              ),
+                            ),
+                            if (_selectedToInvite.isNotEmpty) ...[
+                              const SizedBox(height: 10),
+                              _GradientBtn(
+                                label:
+                                    'Send Invites (${_selectedToInvite.length})',
+                                icon: Icons.send_rounded,
+                                onTap: _sendInvites,
+                              ),
+                            ],
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+
+                // Complete task
+                if (task.status != 'completed')
+                  _Section(
+                    icon: Icons.flag_rounded,
+                    label: 'Complete Task',
+                    color: _C.green,
+                    bgColor: _C.greenLight,
+                    child: Column(
+                      children: [
+                        TextFormField(
+                          controller: _finalNoteCtrl,
+                          maxLines: 3,
+                          style: GoogleFonts.dmSans(
+                            color: _C.textPri,
+                            fontSize: 13,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'Final note (optional)...',
+                            hintStyle: GoogleFonts.dmSans(
+                              color: _C.textTer,
+                              fontSize: 13,
+                            ),
+                            filled: true,
+                            fillColor: Colors.white,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: const BorderSide(color: _C.border),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: const BorderSide(color: _C.border),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: const BorderSide(
+                                color: _C.green,
+                                width: 1.5,
+                              ),
+                            ),
+                            contentPadding: const EdgeInsets.all(14),
                           ),
                         ),
-                        child: Text(
-                          task.adminFinalNote,
-                          style: GoogleFonts.dmSans(
-                            color: Colors.white70,
-                            fontSize: 13,
-                            height: 1.5,
-                          ),
+                        const SizedBox(height: 12),
+                        _completingTask
+                            ? const Center(child: _Loader())
+                            : _GradientBtn(
+                                label: 'Mark as Completed',
+                                icon: Icons.check_circle_outline_rounded,
+                                color1: _C.green,
+                                color2: const Color(0xFF16A34A),
+                                onTap: () => _completeTask(task),
+                              ),
+                      ],
+                    ),
+                  ),
+
+                // Final note (completed)
+                if (task.status == 'completed' &&
+                    task.adminFinalNote.isNotEmpty)
+                  _Section(
+                    icon: Icons.sticky_note_2_outlined,
+                    label: 'Final Note',
+                    color: _C.textSec,
+                    bgColor: _C.divider,
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: _C.border),
+                      ),
+                      child: Text(
+                        task.adminFinalNote,
+                        style: GoogleFonts.dmSans(
+                          color: _C.textSec,
+                          fontSize: 13,
+                          height: 1.5,
                         ),
                       ),
                     ),
-                ],
-              ),
+                  ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -404,10 +418,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       );
       setState(() => _selectedToInvite.clear());
       if (!mounted) return;
-      _snack('Invites sent!', const Color(0xFF42A5F5), Icons.send_rounded);
+      _snack('Invites sent!', _C.blue, Icons.send_rounded);
     } catch (e) {
       if (!mounted) return;
-      _snack('Error: $e', const Color(0xFFF44336), Icons.error_rounded);
+      _snack('Error: $e', _C.red, Icons.error_rounded);
     }
   }
 
@@ -419,9 +433,15 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         child: Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: const Color(0xFF0E2419),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withOpacity(0.08)),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 30,
+                offset: const Offset(0, 10),
+              ),
+            ],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -430,7 +450,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               Text(
                 'Remove Volunteer?',
                 style: GoogleFonts.dmSans(
-                  color: Colors.white,
+                  color: _C.textPri,
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
                 ),
@@ -439,7 +459,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               Text(
                 'This volunteer will be removed and progress recalculated.',
                 style: GoogleFonts.dmSans(
-                  color: Colors.white60,
+                  color: _C.textSec,
                   fontSize: 13,
                   height: 1.5,
                 ),
@@ -454,15 +474,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.12),
-                          ),
+                          border: Border.all(color: _C.border),
+                          color: _C.divider,
                         ),
                         child: Center(
                           child: Text(
                             'Cancel',
                             style: GoogleFonts.dmSans(
-                              color: Colors.white54,
+                              color: _C.textSec,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -477,11 +496,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF44336),
+                          color: _C.red,
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFFF44336).withOpacity(0.4),
+                              color: _C.red.withOpacity(0.3),
                               blurRadius: 12,
                               offset: const Offset(0, 4),
                             ),
@@ -510,14 +529,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     try {
       await widget.taskService.removeVolunteer(widget.taskId, volunteerId);
       if (!mounted) return;
-      _snack(
-        'Volunteer removed.',
-        const Color(0xFFFF9800),
-        Icons.person_remove_rounded,
-      );
+      _snack('Volunteer removed.', _C.orange, Icons.person_remove_rounded);
     } catch (e) {
       if (!mounted) return;
-      _snack('Error: $e', const Color(0xFFF44336), Icons.error_rounded);
+      _snack('Error: $e', _C.red, Icons.error_rounded);
     }
   }
 
@@ -529,36 +544,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         _finalNoteCtrl.text.trim(),
       );
       if (!mounted) return;
-      _snack(
-        'Task completed!',
-        const Color(0xFF4CAF50),
-        Icons.check_circle_rounded,
-      );
+      _snack('Task completed!', _C.green, Icons.check_circle_rounded);
     } catch (e) {
       if (!mounted) return;
-      _snack('Error: $e', const Color(0xFFF44336), Icons.error_rounded);
+      _snack('Error: $e', _C.red, Icons.error_rounded);
     } finally {
       if (mounted) setState(() => _completingTask = false);
     }
   }
-}
-
-// ─── Background Container ─────────────────────────────────────────────────────
-class _BgContainer extends StatelessWidget {
-  final Widget child;
-  const _BgContainer({required this.child});
-  @override
-  Widget build(BuildContext context) => Container(
-    decoration: const BoxDecoration(
-      gradient: LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [Color(0xFF0E2419), Color(0xFF091A10), Color(0xFF06110B)],
-        stops: [0.0, 0.5, 1.0],
-      ),
-    ),
-    child: child,
-  );
 }
 
 // ─── Progress Hero Card ───────────────────────────────────────────────────────
@@ -575,22 +568,25 @@ class _ProgressHeroCard extends StatelessWidget {
     final pct = total > 0 ? (remaining / total) * 100 : 0.0;
     final timeLabel = pct > 50 ? 'ON TRACK' : (pct > 30 ? 'CAUTION' : 'URGENT');
 
+    // Hero card uses dark navy theme like SA dashboard hero
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF0E2419),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.07)),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0D1B3E), Color(0xFF1A2B5E)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.25),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
+            color: const Color(0xFF0D1B3E).withOpacity(0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
       child: Column(
         children: [
-          // Top section
           Padding(
             padding: const EdgeInsets.all(20),
             child: Row(
@@ -608,7 +604,7 @@ class _ProgressHeroCard extends StatelessWidget {
                         height: 88,
                         child: CircularProgressIndicator(
                           value: task.mainProgress / 100,
-                          backgroundColor: Colors.white.withOpacity(0.07),
+                          backgroundColor: Colors.white.withOpacity(0.12),
                           valueColor: AlwaysStoppedAnimation(urgency),
                           strokeWidth: 7,
                           strokeCap: StrokeCap.round,
@@ -672,12 +668,12 @@ class _ProgressHeroCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             decoration: BoxDecoration(
-              color: urgency.withOpacity(0.07),
+              color: urgency.withOpacity(0.1),
               borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(20),
-                bottomRight: Radius.circular(20),
+                bottomLeft: Radius.circular(24),
+                bottomRight: Radius.circular(24),
               ),
-              border: Border(top: BorderSide(color: urgency.withOpacity(0.15))),
+              border: Border(top: BorderSide(color: urgency.withOpacity(0.2))),
             ),
             child: Row(
               children: [
@@ -688,7 +684,7 @@ class _ProgressHeroCard extends StatelessWidget {
                     color: urgency,
                     shape: BoxShape.circle,
                     boxShadow: [
-                      BoxShadow(color: urgency.withOpacity(0.6), blurRadius: 6),
+                      BoxShadow(color: urgency.withOpacity(0.5), blurRadius: 6),
                     ],
                   ),
                 ),
@@ -747,12 +743,14 @@ class _Section extends StatelessWidget {
   final IconData icon;
   final String label;
   final Color color;
+  final Color bgColor;
   final int? count;
   final Widget child;
   const _Section({
     required this.icon,
     required this.label,
     required this.color,
+    required this.bgColor,
     required this.child,
     this.count,
   });
@@ -763,13 +761,12 @@ class _Section extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Section header
         Row(
           children: [
             Container(
               padding: const EdgeInsets.all(7),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.12),
+                color: bgColor,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(icon, color: color, size: 14),
@@ -778,10 +775,9 @@ class _Section extends StatelessWidget {
             Text(
               label,
               style: GoogleFonts.dmSans(
-                color: color,
-                fontSize: 13,
+                color: _C.textPri,
+                fontSize: 14,
                 fontWeight: FontWeight.w700,
-                letterSpacing: 0.2,
               ),
             ),
             if (count != null) ...[
@@ -789,7 +785,7 @@ class _Section extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.15),
+                  color: bgColor,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
@@ -844,13 +840,16 @@ class _AssignedVolunteerRowState extends State<_AssignedVolunteerRow> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.04),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withOpacity(0.07)),
+        border: Border.all(color: _C.border),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6),
+        ],
       ),
       child: Row(
         children: [
-          _VolAvatar(name: name, color: const Color(0xFF4CAF50)),
+          _VolAvatar(name: name, color: _C.green),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -859,7 +858,7 @@ class _AssignedVolunteerRowState extends State<_AssignedVolunteerRow> {
                 Text(
                   name,
                   style: GoogleFonts.dmSans(
-                    color: Colors.white,
+                    color: _C.textPri,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),
@@ -872,10 +871,8 @@ class _AssignedVolunteerRowState extends State<_AssignedVolunteerRow> {
                         borderRadius: BorderRadius.circular(4),
                         child: LinearProgressIndicator(
                           value: widget.progress / 100,
-                          backgroundColor: Colors.white.withOpacity(0.08),
-                          valueColor: const AlwaysStoppedAnimation(
-                            Color(0xFF4CAF50),
-                          ),
+                          backgroundColor: _C.border,
+                          valueColor: const AlwaysStoppedAnimation(_C.green),
                           minHeight: 5,
                         ),
                       ),
@@ -884,7 +881,7 @@ class _AssignedVolunteerRowState extends State<_AssignedVolunteerRow> {
                     Text(
                       '${widget.progress.toStringAsFixed(0)}%',
                       style: GoogleFonts.dmSans(
-                        color: const Color(0xFF4CAF50),
+                        color: _C.green,
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                       ),
@@ -901,12 +898,12 @@ class _AssignedVolunteerRowState extends State<_AssignedVolunteerRow> {
               child: Container(
                 padding: const EdgeInsets.all(7),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF44336).withOpacity(0.1),
+                  color: _C.redLight,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(
                   Icons.person_remove_rounded,
-                  color: Color(0xFFF44336),
+                  color: _C.red,
                   size: 15,
                 ),
               ),
@@ -949,30 +946,30 @@ class _PendingInviteRowState extends State<_PendingInviteRow> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.04),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withOpacity(0.07)),
+        border: Border.all(color: _C.border),
       ),
       child: Row(
         children: [
-          _VolAvatar(name: _name ?? '?', color: const Color(0xFF42A5F5)),
+          _VolAvatar(name: _name ?? '?', color: _C.blue),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               _name ?? widget.volunteerId,
-              style: GoogleFonts.dmSans(color: Colors.white70, fontSize: 13),
+              style: GoogleFonts.dmSans(color: _C.textSec, fontSize: 13),
             ),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
             decoration: BoxDecoration(
-              color: const Color(0xFF42A5F5).withOpacity(0.1),
+              color: _C.blueLight,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
               'INVITED',
               style: GoogleFonts.dmSans(
-                color: const Color(0xFF42A5F5),
+                color: _C.blue,
                 fontSize: 10,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.5,
@@ -985,7 +982,7 @@ class _PendingInviteRowState extends State<_PendingInviteRow> {
                   width: 18,
                   height: 18,
                   child: CircularProgressIndicator(
-                    color: Color(0xFFFF9800),
+                    color: _C.orange,
                     strokeWidth: 2,
                   ),
                 )
@@ -998,12 +995,12 @@ class _PendingInviteRowState extends State<_PendingInviteRow> {
                   child: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.06),
+                      color: _C.divider,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(
                       Icons.close_rounded,
-                      color: Colors.white38,
+                      color: _C.textTer,
                       size: 14,
                     ),
                   ),
@@ -1033,19 +1030,15 @@ class _InviteCheckRow extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 6),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: selected
-            ? const Color(0xFF42A5F5).withOpacity(0.1)
-            : Colors.white.withOpacity(0.03),
+        color: selected ? _C.blueLight : Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: selected
-              ? const Color(0xFF42A5F5).withOpacity(0.45)
-              : Colors.white.withOpacity(0.07),
+          color: selected ? _C.blue.withOpacity(0.4) : _C.border,
         ),
       ),
       child: Row(
         children: [
-          _VolAvatar(name: volunteer.name, color: Colors.white54),
+          _VolAvatar(name: volunteer.name, color: _C.textSec),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -1053,14 +1046,11 @@ class _InviteCheckRow extends StatelessWidget {
               children: [
                 Text(
                   volunteer.name,
-                  style: GoogleFonts.dmSans(color: Colors.white, fontSize: 13),
+                  style: GoogleFonts.dmSans(color: _C.textPri, fontSize: 13),
                 ),
                 Text(
                   volunteer.email,
-                  style: GoogleFonts.dmSans(
-                    color: Colors.white38,
-                    fontSize: 11,
-                  ),
+                  style: GoogleFonts.dmSans(color: _C.textTer, fontSize: 11),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1074,7 +1064,7 @@ class _InviteCheckRow extends StatelessWidget {
                   ? Icons.check_circle_rounded
                   : Icons.radio_button_unchecked_rounded,
               key: ValueKey(selected),
-              color: selected ? const Color(0xFF42A5F5) : Colors.white38,
+              color: selected ? _C.blue : _C.textTer,
               size: 20,
             ),
           ),
@@ -1117,22 +1107,22 @@ class _InlineRequestCardState extends State<_InlineRequestCard> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFFF9800).withOpacity(0.05),
+        color: _C.orangeLight,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFFF9800).withOpacity(0.2)),
+        border: Border.all(color: _C.orange.withOpacity(0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              _VolAvatar(name: _name ?? '?', color: const Color(0xFFFF9800)),
+              _VolAvatar(name: _name ?? '?', color: _C.orange),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   _name ?? req.volunteerId,
                   style: GoogleFonts.dmSans(
-                    color: Colors.white,
+                    color: _C.textPri,
                     fontWeight: FontWeight.w700,
                     fontSize: 13,
                   ),
@@ -1144,13 +1134,13 @@ class _InlineRequestCardState extends State<_InlineRequestCard> {
                   vertical: 5,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFF9800).withOpacity(0.12),
+                  color: _C.orange.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   '${req.currentProgress.toStringAsFixed(0)}% → ${req.requestedProgress.toStringAsFixed(0)}%',
                   style: GoogleFonts.dmSans(
-                    color: const Color(0xFFFF9800),
+                    color: _C.orange,
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                   ),
@@ -1163,7 +1153,7 @@ class _InlineRequestCardState extends State<_InlineRequestCard> {
             Text(
               req.mandatoryNote,
               style: GoogleFonts.dmSans(
-                color: Colors.white54,
+                color: _C.textSec,
                 fontSize: 12,
                 height: 1.5,
               ),
@@ -1178,7 +1168,7 @@ class _InlineRequestCardState extends State<_InlineRequestCard> {
                     width: 20,
                     height: 20,
                     child: CircularProgressIndicator(
-                      color: Color(0xFF42A5F5),
+                      color: _C.blue,
                       strokeWidth: 2,
                     ),
                   ),
@@ -1192,24 +1182,22 @@ class _InlineRequestCardState extends State<_InlineRequestCard> {
                           padding: const EdgeInsets.symmetric(vertical: 9),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: const Color(0xFFF44336).withOpacity(0.5),
-                            ),
-                            color: const Color(0xFFF44336).withOpacity(0.06),
+                            border: Border.all(color: _C.red.withOpacity(0.4)),
+                            color: _C.redLight,
                           ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               const Icon(
                                 Icons.close_rounded,
-                                color: Color(0xFFF44336),
+                                color: _C.red,
                                 size: 13,
                               ),
                               const SizedBox(width: 5),
                               Text(
                                 'Reject',
                                 style: GoogleFonts.dmSans(
-                                  color: const Color(0xFFF44336),
+                                  color: _C.red,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -1226,13 +1214,11 @@ class _InlineRequestCardState extends State<_InlineRequestCard> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 9),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF4CAF50),
+                            color: _C.green,
                             borderRadius: BorderRadius.circular(10),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(
-                                  0xFF4CAF50,
-                                ).withOpacity(0.35),
+                                color: _C.green.withOpacity(0.3),
                                 blurRadius: 10,
                                 offset: const Offset(0, 3),
                               ),
@@ -1278,7 +1264,7 @@ class _InlineRequestCardState extends State<_InlineRequestCard> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error: $e', style: GoogleFonts.dmSans()),
-          backgroundColor: const Color(0xFFF44336),
+          backgroundColor: _C.red,
         ),
       );
     } finally {
@@ -1294,17 +1280,16 @@ class _StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (label, color) = switch (status) {
-      'active' => ('ACTIVE', const Color(0xFF4CAF50)),
-      'completed' => ('DONE', Colors.white38),
-      _ => ('INVITING', const Color(0xFF42A5F5)),
+    final (label, color, bg) = switch (status) {
+      'active' => ('ACTIVE', _C.green, _C.greenLight),
+      'completed' => ('DONE', _C.textSec, _C.divider),
+      _ => ('INVITING', _C.blue, _C.blueLight),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: (color as Color).withOpacity(0.12),
+        color: bg,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.35)),
       ),
       child: Text(
         label,
@@ -1329,8 +1314,8 @@ class _GradientBtn extends StatefulWidget {
     required this.label,
     required this.icon,
     required this.onTap,
-    this.color1 = const Color(0xFF42A5F5),
-    this.color2 = const Color(0xFF1565C0),
+    this.color1 = _C.blue,
+    this.color2 = const Color(0xFF1A2B5E),
   });
   @override
   State<_GradientBtn> createState() => _GradientBtnState();
@@ -1361,7 +1346,7 @@ class _GradientBtnState extends State<_GradientBtn> {
           borderRadius: BorderRadius.circular(14),
           boxShadow: [
             BoxShadow(
-              color: widget.color1.withOpacity(0.35),
+              color: widget.color1.withOpacity(0.3),
               blurRadius: 14,
               offset: const Offset(0, 5),
             ),
@@ -1399,7 +1384,7 @@ class _VolAvatar extends StatelessWidget {
     decoration: BoxDecoration(
       shape: BoxShape.circle,
       color: color.withOpacity(0.12),
-      border: Border.all(color: color.withOpacity(0.25)),
+      border: Border.all(color: color.withOpacity(0.2)),
     ),
     child: Center(
       child: Text(
@@ -1418,8 +1403,6 @@ class _VolAvatar extends StatelessWidget {
 class _Loader extends StatelessWidget {
   const _Loader();
   @override
-  Widget build(BuildContext context) => const CircularProgressIndicator(
-    color: Color(0xFF42A5F5),
-    strokeWidth: 2.5,
-  );
+  Widget build(BuildContext context) =>
+      const CircularProgressIndicator(color: _C.blue, strokeWidth: 2.5);
 }
