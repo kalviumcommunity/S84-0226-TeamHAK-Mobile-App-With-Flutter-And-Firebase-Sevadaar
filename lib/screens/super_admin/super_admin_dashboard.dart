@@ -234,7 +234,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard>
               width: 72,
               height: 72,
               decoration: BoxDecoration(
-                color: _AppColors.green.withOpacity(0.1),
+                color: _AppColors.green.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -305,7 +305,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard>
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: _AppColors.indigo.withOpacity(0.35),
+                      color: _AppColors.indigo.withValues(alpha: 0.35),
                       blurRadius: 24,
                       offset: const Offset(0, 10),
                     ),
@@ -329,14 +329,14 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard>
                         Icon(
                           Icons.touch_app_rounded,
                           size: 12,
-                          color: Colors.white.withOpacity(0.5),
+                          color: Colors.white.withValues(alpha: 0.5),
                         ),
                         const SizedBox(width: 4),
                         Text(
                           'Tap to copy',
                           style: GoogleFonts.dmSans(
                             fontSize: 12,
-                            color: Colors.white.withOpacity(0.5),
+                            color: Colors.white.withValues(alpha: 0.5),
                           ),
                         ),
                       ],
@@ -724,7 +724,7 @@ class _HeroCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: _AppColors.dark.withOpacity(0.28),
+            color: _AppColors.dark.withValues(alpha: 0.28),
             blurRadius: 36,
             offset: const Offset(0, 16),
           ),
@@ -751,7 +751,7 @@ class _HeroCard extends StatelessWidget {
                   height: 160,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: _AppColors.indigo.withOpacity(0.12),
+                    color: _AppColors.indigo.withValues(alpha: 0.12),
                   ),
                 ),
               ),
@@ -763,7 +763,7 @@ class _HeroCard extends StatelessWidget {
                   height: 80,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: _AppColors.indigo.withOpacity(0.08),
+                    color: _AppColors.indigo.withValues(alpha: 0.08),
                   ),
                 ),
               ),
@@ -775,7 +775,7 @@ class _HeroCard extends StatelessWidget {
                   height: 60,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Colors.white.withOpacity(0.03),
+                    color: Colors.white.withValues(alpha: 0.03),
                   ),
                 ),
               ),
@@ -792,10 +792,10 @@ class _HeroCard extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: _AppColors.indigo.withOpacity(0.2),
+                            color: _AppColors.indigo.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
-                              color: _AppColors.indigo.withOpacity(0.3),
+                              color: _AppColors.indigo.withValues(alpha: 0.3),
                             ),
                           ),
                           child: const Icon(
@@ -811,10 +811,10 @@ class _HeroCard extends StatelessWidget {
                             vertical: 7,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.07),
+                            color: Colors.white.withValues(alpha: 0.07),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                              color: Colors.white.withOpacity(0.08),
+                              color: Colors.white.withValues(alpha: 0.08),
                             ),
                           ),
                           child: Row(
@@ -823,13 +823,13 @@ class _HeroCard extends StatelessWidget {
                               Icon(
                                 Icons.calendar_today_rounded,
                                 size: 10,
-                                color: Colors.white.withOpacity(0.45),
+                                color: Colors.white.withValues(alpha: 0.45),
                               ),
                               const SizedBox(width: 6),
                               Text(
                                 today,
                                 style: GoogleFonts.dmSans(
-                                  color: Colors.white.withOpacity(0.55),
+                                  color: Colors.white.withValues(alpha: 0.55),
                                   fontSize: 11,
                                   fontWeight: FontWeight.w500,
                                 ),
@@ -843,7 +843,7 @@ class _HeroCard extends StatelessWidget {
                     Text(
                       'Welcome back',
                       style: GoogleFonts.dmSans(
-                        color: Colors.white.withOpacity(0.45),
+                        color: Colors.white.withValues(alpha: 0.45),
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
                       ),
@@ -861,7 +861,7 @@ class _HeroCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 24),
                     // Divider
-                    Container(height: 1, color: Colors.white.withOpacity(0.07)),
+                    Container(height: 1, color: Colors.white.withValues(alpha: 0.07)),
                     const SizedBox(height: 20),
                     // Stats row
                     StreamBuilder(
@@ -884,7 +884,7 @@ class _HeroCard extends StatelessWidget {
                               margin: const EdgeInsets.symmetric(
                                 horizontal: 20,
                               ),
-                              color: Colors.white.withOpacity(0.08),
+                              color: Colors.white.withValues(alpha: 0.08),
                             ),
                             _HeroStat(
                               value: count > 0 ? 'Active' : 'None',
@@ -928,7 +928,7 @@ class _HeroStat extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: iconColor.withOpacity(0.15),
+            color: iconColor.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(icon, size: 14, color: iconColor),
@@ -949,7 +949,7 @@ class _HeroStat extends StatelessWidget {
             Text(
               label,
               style: GoogleFonts.dmSans(
-                color: Colors.white.withOpacity(0.4),
+                color: Colors.white.withValues(alpha: 0.4),
                 fontSize: 11,
               ),
             ),
@@ -1010,7 +1010,7 @@ class _ActionCardState extends State<_ActionCard> {
             border: Border.all(color: _AppColors.border),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.04),
+                color: Colors.black.withValues(alpha: 0.04),
                 blurRadius: 16,
                 offset: const Offset(0, 4),
               ),
@@ -1118,7 +1118,7 @@ class _NgoCard extends StatelessWidget {
         border: Border.all(color: _AppColors.border),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),
@@ -1217,7 +1217,7 @@ class _NgoCard extends StatelessWidget {
                     color: const Color(0xFFF0F0FF),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: _AppColors.indigo.withOpacity(0.15),
+                      color: _AppColors.indigo.withValues(alpha: 0.15),
                     ),
                   ),
                   child: Row(
@@ -1399,7 +1399,7 @@ class _SheetBtnState extends State<_SheetBtn> {
           decoration: BoxDecoration(
             color: widget.bg,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: widget.color.withOpacity(0.15)),
+            border: Border.all(color: widget.color.withValues(alpha: 0.15)),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -1577,7 +1577,7 @@ class _EmptyState extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.08),
+                color: color.withValues(alpha: 0.08),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, color: color, size: 32),
@@ -1691,7 +1691,7 @@ class _AppBarDelegate extends SliverPersistentHeaderDelegate {
               decoration: BoxDecoration(
                 color: _AppColors.redLight,
                 borderRadius: BorderRadius.circular(11),
-                border: Border.all(color: _AppColors.red.withOpacity(0.15)),
+                border: Border.all(color: _AppColors.red.withValues(alpha: 0.15)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,

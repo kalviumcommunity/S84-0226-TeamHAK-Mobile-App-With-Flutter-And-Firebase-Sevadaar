@@ -4,7 +4,9 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../models/task_model.dart';
 import '../../models/progress_request_model.dart';
 import '../../models/user_model.dart';
+import '../../models/ngo_model.dart';
 import '../../services/auth_service.dart';
+import '../../services/ngo_service.dart';
 import '../../services/task_service.dart';
 import '../../services/user_service.dart';
 import '../auth/login_screen.dart';
@@ -15,9 +17,7 @@ import 'task_detail_screen.dart';
 class _C {
   // Backgrounds
   static const bg = Color(0xFFEEF2F8);
-  static const bgCard = Colors.white;
   static const heroCard = Color(0xFF0D1B3E);
-  static const heroCardMid = Color(0xFF1A2B5E);
 
   // Accents
   static const blue = Color(0xFF4A6CF7);
@@ -25,9 +25,7 @@ class _C {
   static const green = Color(0xFF22C55E);
   static const greenLight = Color(0xFFECFDF5);
   static const orange = Color(0xFFF59E0B);
-  static const orangeLight = Color(0xFFFFFBEB);
   static const red = Color(0xFFEF4444);
-  static const redLight = Color(0xFFFEF2F2);
 
   // Text
   static const textPri = Color(0xFF0D1B3E);
@@ -38,9 +36,6 @@ class _C {
   static const border = Color(0xFFE5E9F0);
   static const divider = Color(0xFFF1F4F9);
 
-  // Hero text colors
-  static const heroTextPri = Colors.white;
-  static const heroTextSec = Color(0xAAFFFFFF);
 }
 
 // ─── Urgency colour helper ────────────────────────────────────────────────────
@@ -67,9 +62,11 @@ class _AdminDashboardState extends State<AdminDashboard>
   final _auth = AuthService();
   final _taskService = TaskService();
   final _userService = UserService();
+  final _ngoService = NgoService();
 
   int _selectedTab = 0;
   UserModel? _currentUser;
+  NgoModel? _currentNgo;
   bool _loadingUser = true;
 
   late AnimationController _fadeCtrl;
@@ -96,9 +93,15 @@ class _AdminDashboardState extends State<AdminDashboard>
     try {
       final uid = _auth.currentUser?.uid ?? '';
       final profile = await _auth.getUserProfile(uid);
+      NgoModel? ngo;
+      final ngoId = profile.ngoId;
+      if (ngoId != null && ngoId.isNotEmpty) {
+        ngo = await _ngoService.getNgoById(ngoId);
+      }
       if (mounted) {
         setState(() {
           _currentUser = profile;
+          _currentNgo = ngo;
           _loadingUser = false;
         });
         _fadeCtrl.forward();
@@ -130,6 +133,7 @@ class _AdminDashboardState extends State<AdminDashboard>
           child: _selectedTab == 0
               ? _TasksTab(
                   currentUser: _currentUser,
+                  currentNgo: _currentNgo,
                   taskService: _taskService,
                   userService: _userService,
                 )
@@ -176,6 +180,7 @@ class _AdminDashboardState extends State<AdminDashboard>
                       CreateTaskScreen(
                         adminId: _currentUser!.uid,
                         ngoId: _currentUser!.ngoId ?? '',
+                        ngoName: _currentNgo?.name,
                       ),
                     ),
                   );
@@ -227,7 +232,7 @@ class _BottomNav extends StatelessWidget {
         border: const Border(top: BorderSide(color: _C.border)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: Colors.black.withValues(alpha: 0.06),
             blurRadius: 20,
             offset: const Offset(0, -4),
           ),
@@ -347,7 +352,7 @@ class _FAB extends StatelessWidget {
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
-              color: _C.blue.withOpacity(0.35),
+              color: _C.blue.withValues(alpha: 0.35),
               blurRadius: 18,
               offset: const Offset(0, 6),
             ),
@@ -362,104 +367,135 @@ class _FAB extends StatelessWidget {
 // ═══════════════════════════════════════════════════════════════════════════════
 // TAB 1 — TASKS
 // ═══════════════════════════════════════════════════════════════════════════════
-class _TasksTab extends StatelessWidget {
+class _TasksTab extends StatefulWidget {
   final UserModel? currentUser;
+  final NgoModel? currentNgo;
   final TaskService taskService;
   final UserService userService;
   const _TasksTab({
     required this.currentUser,
+    this.currentNgo,
     required this.taskService,
     required this.userService,
   });
 
   @override
+  State<_TasksTab> createState() => _TasksTabState();
+}
+
+class _TasksTabState extends State<_TasksTab> {
+  String? _filter; // null = show all, 'active', 'inviting', 'completed'
+
+  @override
   Widget build(BuildContext context) {
-    if (currentUser == null)
+    if (widget.currentUser == null) {
       return _EmptyState(
         icon: Icons.error_outline_rounded,
         message: 'Could not load profile.',
       );
+    }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _Header(currentUser: currentUser!),
-        Expanded(
-          child: StreamBuilder<List<TaskModel>>(
-            stream: taskService.streamAdminTasks(currentUser!.uid),
-            builder: (context, snap) {
-              if (snap.connectionState == ConnectionState.waiting) {
-                return const Center(child: _PulseLoader());
-              }
-              if (snap.hasError) {
-                final err = snap.error.toString();
-                if (err.contains('failed-precondition') ||
-                    err.contains('index')) {
-                  return _EmptyState(
-                    icon: Icons.cloud_off_rounded,
-                    message:
-                        'Database index required.\nPlease contact your developer to create the required Firestore index.',
-                    color: _C.orange,
-                  );
-                }
-                return _EmptyState(
-                  icon: Icons.error_outline_rounded,
-                  message: 'Error loading tasks.',
-                );
-              }
+    return StreamBuilder<List<TaskModel>>(
+      stream: widget.taskService.streamAdminTasks(widget.currentUser!.uid),
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Center(child: _PulseLoader());
+        }
+        if (snap.hasError) {
+          final err = snap.error.toString();
+          if (err.contains('failed-precondition') ||
+              err.contains('index')) {
+            return _EmptyState(
+              icon: Icons.cloud_off_rounded,
+              message:
+                  'Database index required.\nPlease contact your developer to create the required Firestore index.',
+              color: _C.orange,
+            );
+          }
+          return _EmptyState(
+            icon: Icons.error_outline_rounded,
+            message: 'Error loading tasks.',
+          );
+        }
 
-              final tasks = (snap.data ?? [])
-                ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        final allTasks = (snap.data ?? [])
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-              if (tasks.isEmpty) {
-                return _EmptyState(
+        final active = allTasks.where((t) => t.status == 'active').length;
+        final inviting = allTasks.where((t) => t.status == 'inviting').length;
+        final completed = allTasks.where((t) => t.status == 'completed').length;
+
+        final tasks = _filter == null
+            ? allTasks
+            : allTasks.where((t) => t.status == _filter).toList();
+
+        return CustomScrollView(
+          physics: const BouncingScrollPhysics(
+            parent: AlwaysScrollableScrollPhysics(),
+          ),
+          slivers: [
+            // ── Header (scrolls away) ──────────────────────────────────
+            SliverToBoxAdapter(
+              child: _Header(
+                currentUser: widget.currentUser!,
+                currentNgo: widget.currentNgo,
+              ),
+            ),
+
+            // ── Stat bar ───────────────────────────────────────────────
+            if (allTasks.isNotEmpty)
+              SliverToBoxAdapter(
+                child: _StatBar(
+                  active: active,
+                  inviting: inviting,
+                  completed: completed,
+                  selected: _filter,
+                  onFilter: (f) {
+                    setState(() {
+                      _filter = _filter == f ? null : f;
+                    });
+                  },
+                ),
+              ),
+
+            // ── Task list or empty state ───────────────────────────────
+            if (tasks.isEmpty)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: _EmptyState(
                   icon: Icons.assignment_outlined,
-                  message: 'No tasks yet.\nTap + to create your first task.',
-                );
-              }
-
-              final active = tasks.where((t) => t.status == 'active').length;
-              final inviting = tasks
-                  .where((t) => t.status == 'inviting')
-                  .length;
-              final completed = tasks
-                  .where((t) => t.status == 'completed')
-                  .length;
-
-              return Column(
-                children: [
-                  _StatBar(
-                    active: active,
-                    inviting: inviting,
-                    completed: completed,
-                  ),
-                  Expanded(
-                    child: ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
-                      itemCount: tasks.length,
-                      itemBuilder: (_, i) => _TaskCard(
-                        task: tasks[i],
-                        onTap: () => Navigator.push(
-                          context,
-                          _fadeRoute(
-                            TaskDetailScreen(
-                              taskId: tasks[i].taskId,
-                              adminId: currentUser!.uid,
-                              ngoId: currentUser!.ngoId ?? '',
-                              taskService: taskService,
-                              userService: userService,
-                            ),
+                  message: _filter != null
+                      ? 'No $_filter tasks.'
+                      : 'No tasks yet.\nTap + to create your first task.',
+                ),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (_, i) => _TaskCard(
+                      task: tasks[i],
+                      onTap: () => Navigator.push(
+                        context,
+                        _fadeRoute(
+                          TaskDetailScreen(
+                            taskId: tasks[i].taskId,
+                            adminId: widget.currentUser!.uid,
+                            ngoId: widget.currentUser!.ngoId ?? '',
+                            taskService: widget.taskService,
+                            userService: widget.userService,
                           ),
                         ),
                       ),
                     ),
+                    childCount: tasks.length,
                   ),
-                ],
-              );
-            },
-          ),
-        ),
-      ],
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }
@@ -467,7 +503,8 @@ class _TasksTab extends StatelessWidget {
 // ─── Header ───────────────────────────────────────────────────────────────────
 class _Header extends StatelessWidget {
   final UserModel currentUser;
-  const _Header({required this.currentUser});
+  final NgoModel? currentNgo;
+  const _Header({required this.currentUser, this.currentNgo});
 
   @override
   Widget build(BuildContext context) {
@@ -546,7 +583,7 @@ class _Header extends StatelessWidget {
                     border: Border.all(color: _C.border),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
+                        color: Colors.black.withValues(alpha: 0.05),
                         blurRadius: 8,
                       ),
                     ],
@@ -590,7 +627,7 @@ class _Header extends StatelessWidget {
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF0D1B3E).withOpacity(0.3),
+                    color: const Color(0xFF0D1B3E).withValues(alpha: 0.3),
                     blurRadius: 24,
                     offset: const Offset(0, 8),
                   ),
@@ -605,7 +642,7 @@ class _Header extends StatelessWidget {
                         width: 48,
                         height: 48,
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.15),
+                          color: Colors.white.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: Center(
@@ -627,7 +664,7 @@ class _Header extends StatelessWidget {
                   Text(
                     'Welcome back',
                     style: GoogleFonts.dmSans(
-                      color: Colors.white.withOpacity(0.6),
+                      color: Colors.white.withValues(alpha: 0.6),
                       fontSize: 13,
                     ),
                   ),
@@ -641,15 +678,92 @@ class _Header extends StatelessWidget {
                       letterSpacing: -0.5,
                     ),
                   ),
+                  // ── NGO Info Row ──────────────────────────────────────
+                  if (currentNgo != null) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.1),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.apartment_rounded,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  currentNgo!.name,
+                                  style: GoogleFonts.dmSans(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 14,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Join Code: ${currentNgo!.joinCode}',
+                                  style: GoogleFonts.dmSans(
+                                    color: Colors.white.withValues(alpha: 0.5),
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _C.green.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              'NGO',
+                              style: GoogleFonts.dmSans(
+                                color: _C.green,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 20),
-                  Container(height: 1, color: Colors.white.withOpacity(0.12)),
+                  Container(height: 1, color: Colors.white.withValues(alpha: 0.12)),
                   const SizedBox(height: 16),
                   Row(
                     children: [
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.1),
+                          color: Colors.white.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Icon(
@@ -673,7 +787,7 @@ class _Header extends StatelessWidget {
                           Text(
                             'Manage your NGO tasks',
                             style: GoogleFonts.dmSans(
-                              color: Colors.white.withOpacity(0.5),
+                              color: Colors.white.withValues(alpha: 0.5),
                               fontSize: 11,
                             ),
                           ),
@@ -686,10 +800,10 @@ class _Header extends StatelessWidget {
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.15),
+                          color: Colors.white.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: Colors.white.withOpacity(0.2),
+                            color: Colors.white.withValues(alpha: 0.2),
                           ),
                         ),
                         child: Text(
@@ -745,10 +859,14 @@ class _Header extends StatelessWidget {
 // ─── Stat Bar ─────────────────────────────────────────────────────────────────
 class _StatBar extends StatelessWidget {
   final int active, inviting, completed;
+  final String? selected;
+  final ValueChanged<String> onFilter;
   const _StatBar({
     required this.active,
     required this.inviting,
     required this.completed,
+    required this.selected,
+    required this.onFilter,
   });
 
   @override
@@ -762,6 +880,8 @@ class _StatBar extends StatelessWidget {
             value: active,
             color: _C.green,
             bgColor: _C.greenLight,
+            isSelected: selected == 'active',
+            onTap: () => onFilter('active'),
           ),
           const SizedBox(width: 8),
           _StatPill(
@@ -769,6 +889,8 @@ class _StatBar extends StatelessWidget {
             value: inviting,
             color: _C.blue,
             bgColor: _C.blueLight,
+            isSelected: selected == 'inviting',
+            onTap: () => onFilter('inviting'),
           ),
           const SizedBox(width: 8),
           _StatPill(
@@ -776,6 +898,8 @@ class _StatBar extends StatelessWidget {
             value: completed,
             color: _C.textSec,
             bgColor: _C.divider,
+            isSelected: selected == 'completed',
+            onTap: () => onFilter('completed'),
           ),
         ],
       ),
@@ -788,41 +912,53 @@ class _StatPill extends StatelessWidget {
   final int value;
   final Color color;
   final Color bgColor;
+  final bool isSelected;
+  final VoidCallback onTap;
   const _StatPill({
     required this.label,
     required this.value,
     required this.color,
     required this.bgColor,
+    required this.isSelected,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          children: [
-            Text(
-              '$value',
-              style: GoogleFonts.dmSans(
-                color: color,
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-              ),
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            color: isSelected ? color.withValues(alpha: 0.15) : bgColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isSelected ? color : Colors.transparent,
+              width: 1.5,
             ),
-            Text(
-              label,
-              style: GoogleFonts.dmSans(
-                color: color.withOpacity(0.7),
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
+          ),
+          child: Column(
+            children: [
+              Text(
+                '$value',
+                style: GoogleFonts.dmSans(
+                  color: color,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
-            ),
-          ],
+              Text(
+                label,
+                style: GoogleFonts.dmSans(
+                  color: color.withValues(alpha: 0.7),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -865,7 +1001,7 @@ class _TaskCardState extends State<_TaskCard> {
             border: Border.all(color: _C.border),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withValues(alpha: 0.05),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
@@ -1163,7 +1299,7 @@ class _RequestCardState extends State<_RequestCard> {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: _C.border),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10),
         ],
       ),
       child: Column(
@@ -1301,8 +1437,8 @@ class _Avatar extends StatelessWidget {
     height: 40,
     decoration: BoxDecoration(
       shape: BoxShape.circle,
-      color: color.withOpacity(0.12),
-      border: Border.all(color: color.withOpacity(0.25)),
+      color: color.withValues(alpha: 0.12),
+      border: Border.all(color: color.withValues(alpha: 0.25)),
     ),
     child: Center(
       child: Text(
@@ -1325,7 +1461,7 @@ class _Chip extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
     decoration: BoxDecoration(
-      color: color.withOpacity(0.1),
+      color: color.withValues(alpha: 0.1),
       borderRadius: BorderRadius.circular(20),
     ),
     child: Text(
@@ -1348,7 +1484,7 @@ class _ProgressBadge extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
     decoration: BoxDecoration(
-      color: color.withOpacity(0.1),
+      color: color.withValues(alpha: 0.1),
       borderRadius: BorderRadius.circular(10),
     ),
     child: Text(
@@ -1394,8 +1530,8 @@ class _OutlineActionBtnState extends State<_OutlineActionBtn> {
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: widget.color.withOpacity(0.4)),
-          color: widget.color.withOpacity(0.06),
+          border: Border.all(color: widget.color.withValues(alpha: 0.4)),
+          color: widget.color.withValues(alpha: 0.06),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -1452,7 +1588,7 @@ class _FilledActionBtnState extends State<_FilledActionBtn> {
           color: widget.color,
           boxShadow: [
             BoxShadow(
-              color: widget.color.withOpacity(0.3),
+              color: widget.color.withValues(alpha: 0.3),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -1498,7 +1634,7 @@ class _EmptyState extends StatelessWidget {
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: color.withOpacity(0.08),
+              color: color.withValues(alpha: 0.08),
             ),
             child: Icon(icon, size: 40, color: color),
           ),
@@ -1543,7 +1679,7 @@ class _LightDialog extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.12),
+            color: Colors.black.withValues(alpha: 0.12),
             blurRadius: 30,
             offset: const Offset(0, 10),
           ),
@@ -1606,7 +1742,7 @@ class _LightDialog extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: confirmColor.withOpacity(0.3),
+                          color: confirmColor.withValues(alpha: 0.3),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
@@ -1653,8 +1789,8 @@ void _snack(BuildContext context, String msg, Color bg, IconData icon) {
 }
 
 PageRoute _fadeRoute(Widget page) => PageRouteBuilder(
-  pageBuilder: (_, __, ___) => page,
-  transitionsBuilder: (_, anim, __, child) =>
+  pageBuilder: (_, _, _) => page,
+  transitionsBuilder: (_, anim, _, child) =>
       FadeTransition(opacity: anim, child: child),
   transitionDuration: const Duration(milliseconds: 250),
 );

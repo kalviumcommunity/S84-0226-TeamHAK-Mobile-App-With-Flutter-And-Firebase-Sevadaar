@@ -206,6 +206,207 @@ class TaskService {
     await batch.commit();
   }
 
+  // ── VOLUNTEER STREAMS ──────────────────────────────────────────
+
+  /// All tasks belonging to an NGO.
+  Stream<List<TaskModel>> streamNgoTasks(String ngoId) {
+    return _db
+        .collection('tasks')
+        .where('ngoId', isEqualTo: ngoId)
+        .snapshots()
+        .map((snap) =>
+            snap.docs.map((d) => TaskModel.fromMap(d.data(), d.id)).toList());
+  }
+
+  /// Tasks where the volunteer is in assignedVolunteers.
+  Stream<List<TaskModel>> streamVolunteerAssignedTasks(String volunteerId) {
+    return _db
+        .collection('tasks')
+        .where('assignedVolunteers', arrayContains: volunteerId)
+        .snapshots()
+        .map((snap) =>
+            snap.docs.map((d) => TaskModel.fromMap(d.data(), d.id)).toList());
+  }
+
+  /// Tasks where the volunteer has a pending invite.
+  Stream<List<TaskModel>> streamVolunteerInvites(String volunteerId) {
+    return _db
+        .collection('tasks')
+        .where('pendingInvites', arrayContains: volunteerId)
+        .snapshots()
+        .map((snap) =>
+            snap.docs.map((d) => TaskModel.fromMap(d.data(), d.id)).toList());
+  }
+
+  /// Get the volunteer's individual assignment for a task.
+  Future<TaskAssignmentModel?> getVolunteerAssignment(
+    String taskId,
+    String volunteerId,
+  ) async {
+    final snap = await _db
+        .collection('task_assignments')
+        .where('taskId', isEqualTo: taskId)
+        .where('volunteerId', isEqualTo: volunteerId)
+        .limit(1)
+        .get();
+    if (snap.docs.isEmpty) return null;
+    return TaskAssignmentModel.fromMap(
+        snap.docs.first.data(), snap.docs.first.id);
+  }
+
+  /// Stream the volunteer's assignment for a specific task.
+  Stream<TaskAssignmentModel?> streamVolunteerAssignment(
+    String taskId,
+    String volunteerId,
+  ) {
+    return _db
+        .collection('task_assignments')
+        .where('taskId', isEqualTo: taskId)
+        .where('volunteerId', isEqualTo: volunteerId)
+        .limit(1)
+        .snapshots()
+        .map((snap) {
+      if (snap.docs.isEmpty) return null;
+      return TaskAssignmentModel.fromMap(
+          snap.docs.first.data(), snap.docs.first.id);
+    });
+  }
+
+  // ── ACCEPT / DECLINE INVITATIONS ──────────────────────────────
+
+  /// Volunteer accepts an invitation: move from pendingInvites → assignedVolunteers
+  /// and create a task_assignment document.
+  Future<void> acceptInvite(String taskId, String volunteerId) async {
+    final batch = _db.batch();
+
+    // Move volunteer from pendingInvites to assignedVolunteers
+    final taskRef = _db.collection('tasks').doc(taskId);
+    batch.update(taskRef, {
+      'pendingInvites': FieldValue.arrayRemove([volunteerId]),
+      'assignedVolunteers': FieldValue.arrayUnion([volunteerId]),
+    });
+
+    // Create a task_assignment
+    final assignRef = _db.collection('task_assignments').doc();
+    batch.set(assignRef, {
+      'taskId': taskId,
+      'volunteerId': volunteerId,
+      'individualProgress': 0.0,
+    });
+
+    await batch.commit();
+
+    // Check if task should move to 'active' (all slots filled or at least 1 accepted)
+    final taskDoc = await taskRef.get();
+    if (taskDoc.exists) {
+      final task = TaskModel.fromMap(taskDoc.data()!, taskDoc.id);
+      if (task.status == 'inviting') {
+        await taskRef.update({'status': 'active'});
+      }
+    }
+  }
+
+  /// Volunteer declines an invitation.
+  Future<void> declineInvite(String taskId, String volunteerId) async {
+    await _db.collection('tasks').doc(taskId).update({
+      'pendingInvites': FieldValue.arrayRemove([volunteerId]),
+      'declinedBy': FieldValue.arrayUnion([volunteerId]),
+    });
+  }
+
+  // ── JOIN / DISMISS TASK (from NGO Tasks) ──────────────────────
+
+  /// Volunteer joins a task directly (not through invitation).
+  Future<void> joinTask(String taskId, String volunteerId) async {
+    final taskDoc = await _db.collection('tasks').doc(taskId).get();
+    if (!taskDoc.exists) throw Exception('Task not found.');
+    final task = TaskModel.fromMap(taskDoc.data()!, taskDoc.id);
+
+    if (task.assignedVolunteers.contains(volunteerId)) {
+      throw Exception('Already assigned to this task.');
+    }
+    if (task.assignedVolunteers.length >= task.maxVolunteers) {
+      throw Exception('Task is full.');
+    }
+    if (task.status == 'completed') {
+      throw Exception('Task is already completed.');
+    }
+
+    final batch = _db.batch();
+    final taskRef = _db.collection('tasks').doc(taskId);
+    batch.update(taskRef, {
+      'assignedVolunteers': FieldValue.arrayUnion([volunteerId]),
+      'pendingInvites': FieldValue.arrayRemove([volunteerId]),
+      'declinedBy': FieldValue.arrayRemove([volunteerId]),
+    });
+
+    final assignRef = _db.collection('task_assignments').doc();
+    batch.set(assignRef, {
+      'taskId': taskId,
+      'volunteerId': volunteerId,
+      'individualProgress': 0.0,
+    });
+
+    await batch.commit();
+
+    // Activate task if it was in inviting state
+    final updatedDoc = await taskRef.get();
+    if (updatedDoc.exists) {
+      final updatedTask = TaskModel.fromMap(updatedDoc.data()!, updatedDoc.id);
+      if (updatedTask.status == 'inviting') {
+        await taskRef.update({'status': 'active'});
+      }
+    }
+  }
+
+  /// Volunteer dismisses a task they're not interested in.
+  Future<void> dismissTask(String taskId, String volunteerId) async {
+    await _db.collection('tasks').doc(taskId).update({
+      'declinedBy': FieldValue.arrayUnion([volunteerId]),
+    });
+  }
+
+  // ── SUBMIT PROGRESS REQUEST ───────────────────────────────────
+
+  /// Volunteer submits a progress update request for admin approval.
+  Future<void> submitProgressRequest({
+    required String taskId,
+    required String taskTitle,
+    required String volunteerId,
+    required String adminId,
+    required double currentProgress,
+    required double requestedProgress,
+    required String note,
+  }) async {
+    final ref = _db.collection('progress_requests').doc();
+    await ref.set({
+      'taskId': taskId,
+      'taskTitle': taskTitle,
+      'volunteerId': volunteerId,
+      'adminId': adminId,
+      'currentProgress': currentProgress,
+      'requestedProgress': requestedProgress,
+      'mandatoryNote': note,
+      'status': 'pending',
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// Stream progress requests for a specific volunteer on a task.
+  Stream<List<ProgressRequestModel>> streamVolunteerProgressRequests(
+    String taskId,
+    String volunteerId,
+  ) {
+    return _db
+        .collection('progress_requests')
+        .where('taskId', isEqualTo: taskId)
+        .where('volunteerId', isEqualTo: volunteerId)
+        .snapshots()
+        .map((snap) => snap.docs
+            .map((d) => ProgressRequestModel.fromMap(d.data(), d.id))
+            .toList());
+  }
+
   // ── INTERNAL: Recalculate mainProgress ───────────────────────
   Future<void> _recalculateMainProgress(String taskId) async {
     final taskDoc = await _db.collection('tasks').doc(taskId).get();
