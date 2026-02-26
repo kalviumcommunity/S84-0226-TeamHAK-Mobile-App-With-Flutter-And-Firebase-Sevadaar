@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'ngo_building_painter.dart';
 import '../landing_page.dart';
+import '../role_router.dart';
 
 /// Premium splash screen – NGO building construction animation
 /// with realistic painted volunteer figures.
@@ -31,7 +33,7 @@ class _SplashScreenState extends State<SplashScreen>
   static const Color _accent = Color(0xFF2196F3);
 
   // Controller covers the ENTIRE splash duration (animation + hold).
-  static const Duration _totalDuration = Duration(milliseconds: 8500);
+  static const Duration _totalDuration = Duration(milliseconds: 4000);
 
   late final AnimationController _controller;
   late final Animation<double> _buildingProgress;
@@ -39,11 +41,33 @@ class _SplashScreenState extends State<SplashScreen>
   late final Animation<double> _connectionProgress;
   late final Animation<double> _brandFade;
   late final Animation<double> _buildingScale;
+  
+  bool _shouldShowAnimation = true;
 
   @override
   void initState() {
     super.initState();
 
+    // Check if user is already logged in
+    User? currentUser;
+    try {
+      currentUser = FirebaseAuth.instance.currentUser;
+    } catch (e) {
+      // Firebase not available (e.g., on Linux/Windows dev mode)
+      currentUser = null;
+    }
+
+    // If user is already logged in (existing user), skip animation and go to auth check
+    if (currentUser != null) {
+      _shouldShowAnimation = false;
+      // Navigate immediately to RoleRouter without animation
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _navigateToAuthCheck();
+      });
+      return;
+    }
+
+    // For new/unauthenticated users, proceed with splash animation
     _controller = AnimationController(vsync: this, duration: _totalDuration);
 
     // Building painter progress (0.0 – 0.46 ≈ 3900 ms)
@@ -88,7 +112,7 @@ class _SplashScreenState extends State<SplashScreen>
 
     _controller.forward();
 
-    // Navigate when the controller completes (at 8500 ms).
+    // Navigate when the controller completes (at 4000 ms).
     _controller.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
         _navigateToLanding();
@@ -96,6 +120,22 @@ class _SplashScreenState extends State<SplashScreen>
     });
   }
 
+  /// Navigate to auth check screen for existing logged-in users
+  /// Shows RoleRouter loading screen while checking auth
+  void _navigateToAuthCheck() {
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      PageRouteBuilder(
+        transitionDuration: const Duration(milliseconds: 300),
+        pageBuilder: (context, animation1, animation2) => const RoleRouter(),
+        transitionsBuilder: (context2, animation, animation3, child) =>
+            FadeTransition(opacity: animation, child: child),
+      ),
+    );
+  }
+
+  /// Navigate after splash animation for new/unauthenticated users
   void _navigateToLanding() {
     if (!mounted) return;
     Navigator.pushReplacement(
@@ -111,12 +151,42 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   void dispose() {
-    _controller.dispose();
+    if (_shouldShowAnimation) {
+      _controller.dispose();
+    }
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    // If user is already logged in (returning user), show loading screen
+    if (!_shouldShowAnimation) {
+      return Scaffold(
+        backgroundColor: const Color(0xFF06110B),
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(
+                color: Color(0xFF4CAF50),
+                strokeWidth: 2.5,
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Loading your dashboard...',
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  color: const Color(0xFF81C784),
+                  fontWeight: FontWeight.w300,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // For new users, show splash animation
     final size = MediaQuery.of(context).size;
 
     // Painter canvas – make it big (90 % width, 55 % height)
