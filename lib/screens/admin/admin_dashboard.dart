@@ -13,19 +13,34 @@ import 'task_detail_screen.dart';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 class _C {
-  static const bg = Color(0xFF06110B);
-  static const bgMid = Color(0xFF091A10);
-  static const surface = Color(0xFF0E2419);
-  static const surface2 = Color(0xFF122D1C);
-  static const blue = Color(0xFF42A5F5);
-  static const blueDeep = Color(0xFF1565C0);
-  static const green = Color(0xFF4CAF50);
-  static const orange = Color(0xFFFF9800);
-  static const red = Color(0xFFF44336);
-  static const textPri = Colors.white;
-  static const textSec = Color(0x99FFFFFF); // white 60%
-  static const textTer = Color(0x4DFFFFFF); // white 30%
-  static const divider = Color(0x14FFFFFF); // white 8%
+  // Backgrounds
+  static const bg = Color(0xFFEEF2F8);
+  static const bgCard = Colors.white;
+  static const heroCard = Color(0xFF0D1B3E);
+  static const heroCardMid = Color(0xFF1A2B5E);
+
+  // Accents
+  static const blue = Color(0xFF4A6CF7);
+  static const blueLight = Color(0xFFEEF2FF);
+  static const green = Color(0xFF22C55E);
+  static const greenLight = Color(0xFFECFDF5);
+  static const orange = Color(0xFFF59E0B);
+  static const orangeLight = Color(0xFFFFFBEB);
+  static const red = Color(0xFFEF4444);
+  static const redLight = Color(0xFFFEF2F2);
+
+  // Text
+  static const textPri = Color(0xFF0D1B3E);
+  static const textSec = Color(0xFF6B7280);
+  static const textTer = Color(0xFFB0B7C3);
+
+  // Borders / Dividers
+  static const border = Color(0xFFE5E9F0);
+  static const divider = Color(0xFFF1F4F9);
+
+  // Hero text colors
+  static const heroTextPri = Colors.white;
+  static const heroTextSec = Color(0xAAFFFFFF);
 }
 
 // ─── Urgency colour helper ────────────────────────────────────────────────────
@@ -105,26 +120,24 @@ class _AdminDashboardState extends State<AdminDashboard>
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.light,
+        statusBarIconBrightness: Brightness.dark,
       ),
       child: Scaffold(
         backgroundColor: _C.bg,
         extendBody: true,
         body: FadeTransition(
           opacity: _fadeAnim,
-          child: _DarkGradientBg(
-            child: _selectedTab == 0
-                ? _TasksTab(
-                    currentUser: _currentUser,
-                    taskService: _taskService,
-                    userService: _userService,
-                  )
-                : _RequestsTab(
-                    currentUser: _currentUser,
-                    taskService: _taskService,
-                    userService: _userService,
-                  ),
-          ),
+          child: _selectedTab == 0
+              ? _TasksTab(
+                  currentUser: _currentUser,
+                  taskService: _taskService,
+                  userService: _userService,
+                )
+              : _RequestsTab(
+                  currentUser: _currentUser,
+                  taskService: _taskService,
+                  userService: _userService,
+                ),
         ),
         bottomNavigationBar: _BottomNav(
           selected: _selectedTab,
@@ -176,7 +189,7 @@ class _AdminDashboardState extends State<AdminDashboard>
   Future<void> _confirmSignOut() async {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => _DarkDialog(
+      builder: (ctx) => _LightDialog(
         title: 'Sign Out?',
         body: 'You will be returned to the login screen.',
         confirmLabel: 'Sign Out',
@@ -195,24 +208,6 @@ class _AdminDashboardState extends State<AdminDashboard>
   }
 }
 
-// ─── Background gradient wrapper ─────────────────────────────────────────────
-class _DarkGradientBg extends StatelessWidget {
-  final Widget child;
-  const _DarkGradientBg({required this.child});
-  @override
-  Widget build(BuildContext context) => Container(
-    decoration: const BoxDecoration(
-      gradient: LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [Color(0xFF0E2419), Color(0xFF091A10), Color(0xFF06110B)],
-        stops: [0.0, 0.5, 1.0],
-      ),
-    ),
-    child: child,
-  );
-}
-
 // ─── Bottom Nav ───────────────────────────────────────────────────────────────
 class _BottomNav extends StatelessWidget {
   final int selected;
@@ -228,11 +223,11 @@ class _BottomNav extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: _C.surface,
-        border: const Border(top: BorderSide(color: _C.divider)),
+        color: Colors.white,
+        border: const Border(top: BorderSide(color: _C.border)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.4),
+            color: Colors.black.withOpacity(0.06),
             blurRadius: 20,
             offset: const Offset(0, -4),
           ),
@@ -240,7 +235,7 @@ class _BottomNav extends StatelessWidget {
       ),
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
+          padding: const EdgeInsets.symmetric(vertical: 6),
           child: Row(
             children: [
               _NavItem(
@@ -293,16 +288,15 @@ class _NavItem extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 10),
+          padding: const EdgeInsets.symmetric(vertical: 8),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Indicator pill
               AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 height: 3,
                 width: selected ? 24 : 0,
-                margin: const EdgeInsets.only(bottom: 6),
+                margin: const EdgeInsets.only(bottom: 5),
                 decoration: BoxDecoration(
                   color: _C.blue,
                   borderRadius: BorderRadius.circular(4),
@@ -346,14 +340,14 @@ class _FAB extends StatelessWidget {
         height: 58,
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [Color(0xFF42A5F5), Color(0xFF1565C0)],
+            colors: [Color(0xFF4A6CF7), Color(0xFF1A2B5E)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
-              color: _C.blue.withOpacity(0.4),
+              color: _C.blue.withOpacity(0.35),
               blurRadius: 18,
               offset: const Offset(0, 6),
             ),
@@ -392,14 +386,12 @@ class _TasksTab extends StatelessWidget {
         _Header(currentUser: currentUser!),
         Expanded(
           child: StreamBuilder<List<TaskModel>>(
-            // ── FIX: query only by adminId (no orderBy), sort client-side ──
             stream: taskService.streamAdminTasks(currentUser!.uid),
             builder: (context, snap) {
               if (snap.connectionState == ConnectionState.waiting) {
                 return const Center(child: _PulseLoader());
               }
               if (snap.hasError) {
-                // More helpful error display
                 final err = snap.error.toString();
                 if (err.contains('failed-precondition') ||
                     err.contains('index')) {
@@ -416,7 +408,6 @@ class _TasksTab extends StatelessWidget {
                 );
               }
 
-              // ── Client-side sort by createdAt descending ──────────────────
               final tasks = (snap.data ?? [])
                 ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
@@ -480,79 +471,272 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+
     return SafeArea(
       bottom: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-        child: Row(
-          children: [
-            // Avatar
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const RadialGradient(
-                  colors: [Color(0xFF42A5F5), Color(0xFF1565C0)],
-                  stops: [0.1, 1.0],
-                ),
-                boxShadow: [
-                  BoxShadow(color: _C.blue.withOpacity(0.35), blurRadius: 12),
-                ],
-              ),
-              child: Center(
-                child: Text(
-                  currentUser.name.isNotEmpty
-                      ? currentUser.name[0].toUpperCase()
-                      : 'A',
-                  style: GoogleFonts.dmSans(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Top bar ──────────────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+            child: Row(
+              children: [
+                // Logo + title
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: _C.heroCard,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.shield_rounded,
                     color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 20,
+                    size: 20,
                   ),
                 ),
-              ),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Dashboard',
+                      style: GoogleFonts.dmSans(
+                        color: _C.textPri,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                    Text(
+                      'Admin',
+                      style: GoogleFonts.dmSans(
+                        color: _C.textSec,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+                const Spacer(),
+                // Date pill
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 7,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: _C.border),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 8,
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.calendar_today_rounded,
+                        size: 13,
+                        color: _C.textSec,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${months[now.month - 1]} ${now.day}, ${now.year}',
+                        style: GoogleFonts.dmSans(
+                          color: _C.textSec,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 14),
-            Expanded(
+          ),
+          const SizedBox(height: 16),
+
+          // ── Hero Card ────────────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF0D1B3E), Color(0xFF1A2B5E)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF0D1B3E).withOpacity(0.3),
+                    blurRadius: 24,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Welcome back,',
-                    style: GoogleFonts.dmSans(color: _C.textSec, fontSize: 12),
+                  Row(
+                    children: [
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Center(
+                          child: Text(
+                            currentUser.name.isNotEmpty
+                                ? currentUser.name[0].toUpperCase()
+                                : 'A',
+                            style: GoogleFonts.dmSans(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 22,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Welcome back',
+                    style: GoogleFonts.dmSans(
+                      color: Colors.white.withOpacity(0.6),
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
                   Text(
                     currentUser.name,
                     style: GoogleFonts.dmSans(
-                      color: _C.textPri,
-                      fontSize: 18,
+                      color: Colors.white,
+                      fontSize: 26,
                       fontWeight: FontWeight.w800,
-                      letterSpacing: -0.3,
+                      letterSpacing: -0.5,
                     ),
+                  ),
+                  const SizedBox(height: 20),
+                  Container(height: 1, color: Colors.white.withOpacity(0.12)),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(
+                          Icons.task_alt_rounded,
+                          color: Colors.white,
+                          size: 16,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Task Manager',
+                            style: GoogleFonts.dmSans(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                            ),
+                          ),
+                          Text(
+                            'Manage your NGO tasks',
+                            style: GoogleFonts.dmSans(
+                              color: Colors.white.withOpacity(0.5),
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.2),
+                          ),
+                        ),
+                        child: Text(
+                          'ADMIN',
+                          style: GoogleFonts.dmSans(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-              decoration: BoxDecoration(
-                color: _C.blue.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: _C.blue.withOpacity(0.35)),
-              ),
-              child: Text(
-                'ADMIN',
-                style: GoogleFonts.dmSans(
-                  color: _C.blue,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1,
+          ),
+          const SizedBox(height: 20),
+
+          // ── Section label ────────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                Container(
+                  width: 4,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    color: _C.blue,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                 ),
-              ),
+                const SizedBox(width: 10),
+                Text(
+                  'Your Tasks',
+                  style: GoogleFonts.dmSans(
+                    color: _C.textPri,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 4),
+        ],
       ),
     );
   }
@@ -570,14 +754,29 @@ class _StatBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       child: Row(
         children: [
-          _StatPill(label: 'Active', value: active, color: _C.green),
+          _StatPill(
+            label: 'Active',
+            value: active,
+            color: _C.green,
+            bgColor: _C.greenLight,
+          ),
           const SizedBox(width: 8),
-          _StatPill(label: 'Inviting', value: inviting, color: _C.blue),
+          _StatPill(
+            label: 'Inviting',
+            value: inviting,
+            color: _C.blue,
+            bgColor: _C.blueLight,
+          ),
           const SizedBox(width: 8),
-          _StatPill(label: 'Done', value: completed, color: _C.textTer),
+          _StatPill(
+            label: 'Done',
+            value: completed,
+            color: _C.textSec,
+            bgColor: _C.divider,
+          ),
         ],
       ),
     );
@@ -588,21 +787,22 @@ class _StatPill extends StatelessWidget {
   final String label;
   final int value;
   final Color color;
+  final Color bgColor;
   const _StatPill({
     required this.label,
     required this.value,
     required this.color,
+    required this.bgColor,
   });
 
   @override
   Widget build(BuildContext context) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: color.withOpacity(0.2)),
+          color: bgColor,
+          borderRadius: BorderRadius.circular(16),
         ),
         child: Column(
           children: [
@@ -660,12 +860,12 @@ class _TaskCardState extends State<_TaskCard> {
         child: Container(
           margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
-            color: _C.surface,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: _C.divider),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: _C.border),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.2),
+                color: Colors.black.withOpacity(0.05),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
@@ -681,12 +881,9 @@ class _TaskCardState extends State<_TaskCard> {
                   decoration: BoxDecoration(
                     color: urgency,
                     borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(18),
-                      bottomLeft: Radius.circular(18),
+                      topLeft: Radius.circular(20),
+                      bottomLeft: Radius.circular(20),
                     ),
-                    boxShadow: [
-                      BoxShadow(color: urgency.withOpacity(0.6), blurRadius: 8),
-                    ],
                   ),
                 ),
                 Expanded(
@@ -695,7 +892,6 @@ class _TaskCardState extends State<_TaskCard> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Title row
                         Row(
                           children: [
                             Expanded(
@@ -727,18 +923,16 @@ class _TaskCardState extends State<_TaskCard> {
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 12),
-                        // Progress bar
                         ClipRRect(
                           borderRadius: BorderRadius.circular(6),
                           child: LinearProgressIndicator(
                             value: task.mainProgress / 100,
-                            backgroundColor: Colors.white.withOpacity(0.06),
+                            backgroundColor: _C.border,
                             valueColor: AlwaysStoppedAnimation(urgency),
                             minHeight: 6,
                           ),
                         ),
                         const SizedBox(height: 8),
-                        // Meta row
                         Row(
                           children: [
                             Icon(
@@ -750,7 +944,7 @@ class _TaskCardState extends State<_TaskCard> {
                             Text(
                               '${task.assignedVolunteers.length}/${task.maxVolunteers}',
                               style: GoogleFonts.dmSans(
-                                color: _C.textTer,
+                                color: _C.textSec,
                                 fontSize: 11,
                               ),
                             ),
@@ -764,7 +958,7 @@ class _TaskCardState extends State<_TaskCard> {
                             Text(
                               '${task.deadline.day}/${task.deadline.month}/${task.deadline.year}',
                               style: GoogleFonts.dmSans(
-                                color: _C.textTer,
+                                color: _C.textSec,
                                 fontSize: 11,
                               ),
                             ),
@@ -793,7 +987,7 @@ class _TaskCardState extends State<_TaskCard> {
 
   (String, Color) _statusData(String s) => switch (s) {
     'active' => ('ACTIVE', _C.green),
-    'completed' => ('DONE', _C.textTer),
+    'completed' => ('DONE', _C.textSec),
     _ => ('INVITING', _C.blue),
   };
 }
@@ -826,7 +1020,7 @@ class _RequestsTab extends StatelessWidget {
         SafeArea(
           bottom: false,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 28, 20, 16),
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -929,7 +1123,7 @@ class _RequestCardState extends State<_RequestCard> {
   Future<void> _reject() async {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => _DarkDialog(
+      builder: (ctx) => _LightDialog(
         title: 'Reject Request?',
         body: "The volunteer's progress will not be updated.",
         confirmLabel: 'Reject',
@@ -965,17 +1159,16 @@ class _RequestCardState extends State<_RequestCard> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: _C.surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _C.divider),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _C.border),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.18), blurRadius: 10),
+          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Header ──────────────────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
             child: Row(
@@ -1009,20 +1202,17 @@ class _RequestCardState extends State<_RequestCard> {
               ],
             ),
           ),
-
-          // ── Progress change ──────────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.04),
+                color: _C.divider,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: _C.divider),
               ),
               child: Row(
                 children: [
-                  _ProgressBadge(value: req.currentProgress, color: _C.textTer),
+                  _ProgressBadge(value: req.currentProgress, color: _C.textSec),
                   Expanded(
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -1045,8 +1235,6 @@ class _RequestCardState extends State<_RequestCard> {
               ),
             ),
           ),
-
-          // ── Note ──────────────────────────────────────────────────────────
           if (req.mandatoryNote.isNotEmpty) ...[
             const SizedBox(height: 10),
             Padding(
@@ -1070,8 +1258,6 @@ class _RequestCardState extends State<_RequestCard> {
               ),
             ),
           ],
-
-          // ── Actions ───────────────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.all(16),
             child: _processing
@@ -1105,7 +1291,6 @@ class _RequestCardState extends State<_RequestCard> {
 }
 
 // ─── Reusable Small Widgets ───────────────────────────────────────────────────
-
 class _Avatar extends StatelessWidget {
   final String name;
   final Color color;
@@ -1116,8 +1301,8 @@ class _Avatar extends StatelessWidget {
     height: 40,
     decoration: BoxDecoration(
       shape: BoxShape.circle,
-      color: color.withOpacity(0.15),
-      border: Border.all(color: color.withOpacity(0.3)),
+      color: color.withOpacity(0.12),
+      border: Border.all(color: color.withOpacity(0.25)),
     ),
     child: Center(
       child: Text(
@@ -1140,9 +1325,8 @@ class _Chip extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
     decoration: BoxDecoration(
-      color: color.withOpacity(0.12),
+      color: color.withOpacity(0.1),
       borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: color.withOpacity(0.35)),
     ),
     child: Text(
       label,
@@ -1166,7 +1350,6 @@ class _ProgressBadge extends StatelessWidget {
     decoration: BoxDecoration(
       color: color.withOpacity(0.1),
       borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: color.withOpacity(0.3)),
     ),
     child: Text(
       '${value.toStringAsFixed(0)}%',
@@ -1211,7 +1394,7 @@ class _OutlineActionBtnState extends State<_OutlineActionBtn> {
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: widget.color.withOpacity(0.5)),
+          border: Border.all(color: widget.color.withOpacity(0.4)),
           color: widget.color.withOpacity(0.06),
         ),
         child: Row(
@@ -1269,7 +1452,7 @@ class _FilledActionBtnState extends State<_FilledActionBtn> {
           color: widget.color,
           boxShadow: [
             BoxShadow(
-              color: widget.color.withOpacity(0.35),
+              color: widget.color.withOpacity(0.3),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -1338,11 +1521,11 @@ class _PulseLoader extends StatelessWidget {
       const CircularProgressIndicator(color: _C.blue, strokeWidth: 2.5);
 }
 
-class _DarkDialog extends StatelessWidget {
+class _LightDialog extends StatelessWidget {
   final String title, body, confirmLabel;
   final Color confirmColor;
   final VoidCallback onConfirm, onCancel;
-  const _DarkDialog({
+  const _LightDialog({
     required this.title,
     required this.body,
     required this.confirmLabel,
@@ -1356,9 +1539,15 @@ class _DarkDialog extends StatelessWidget {
     child: Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: _C.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _C.divider),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.12),
+            blurRadius: 30,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1391,7 +1580,8 @@ class _DarkDialog extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: _C.divider),
+                      border: Border.all(color: _C.border),
+                      color: _C.divider,
                     ),
                     child: Center(
                       child: Text(
@@ -1416,7 +1606,7 @@ class _DarkDialog extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: confirmColor.withOpacity(0.35),
+                          color: confirmColor.withOpacity(0.3),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
