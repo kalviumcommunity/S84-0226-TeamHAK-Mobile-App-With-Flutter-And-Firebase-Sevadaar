@@ -16,6 +16,7 @@ class TaskModel {
   final double mainProgress; // 0.0 – 100.0
   final DateTime createdAt;
   final DateTime deadline;
+  final DateTime inviteDeadline;
   final String adminFinalNote;
 
   const TaskModel({
@@ -32,6 +33,7 @@ class TaskModel {
     required this.mainProgress,
     required this.createdAt,
     required this.deadline,
+    required this.inviteDeadline,
     this.adminFinalNote = '',
   });
 
@@ -54,6 +56,9 @@ class TaskModel {
       createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       deadline: (map['deadline'] as Timestamp?)?.toDate() ??
           DateTime.now().add(const Duration(days: 7)),
+      inviteDeadline: (map['inviteDeadline'] as Timestamp?)?.toDate() ??
+          ((map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now())
+              .add(const Duration(hours: 24)),
       adminFinalNote: map['adminFinalNote'] ?? '',
     );
   }
@@ -71,6 +76,7 @@ class TaskModel {
         'mainProgress': mainProgress,
         'createdAt': Timestamp.fromDate(createdAt),
         'deadline': Timestamp.fromDate(deadline),
+        'inviteDeadline': Timestamp.fromDate(inviteDeadline),
         'adminFinalNote': adminFinalNote,
       };
 }
