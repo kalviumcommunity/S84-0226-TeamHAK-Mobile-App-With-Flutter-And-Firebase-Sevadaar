@@ -37,6 +37,7 @@ class TaskService {
       'mainProgress': 0.0,
       'createdAt': FieldValue.serverTimestamp(),
       'deadline': Timestamp.fromDate(deadline),
+      'inviteDeadline': Timestamp.fromDate(DateTime.now().add(const Duration(hours: 24))),
       'adminFinalNote': '',
     });
     return ref.id;
@@ -296,11 +297,12 @@ class TaskService {
 
     await batch.commit();
 
-    // Check if task should move to 'active' (all slots filled or at least 1 accepted)
+    // Only auto-activate if ALL required volunteer slots are filled
     final taskDoc = await taskRef.get();
     if (taskDoc.exists) {
       final task = TaskModel.fromMap(taskDoc.data()!, taskDoc.id);
-      if (task.status == 'inviting') {
+      if (task.status == 'inviting' &&
+          task.assignedVolunteers.length >= task.maxVolunteers) {
         await taskRef.update({'status': 'active'});
       }
     }
@@ -349,11 +351,12 @@ class TaskService {
 
     await batch.commit();
 
-    // Activate task if it was in inviting state
+    // Only auto-activate if ALL required volunteer slots are filled
     final updatedDoc = await taskRef.get();
     if (updatedDoc.exists) {
       final updatedTask = TaskModel.fromMap(updatedDoc.data()!, updatedDoc.id);
-      if (updatedTask.status == 'inviting') {
+      if (updatedTask.status == 'inviting' &&
+          updatedTask.assignedVolunteers.length >= updatedTask.maxVolunteers) {
         await taskRef.update({'status': 'active'});
       }
     }
@@ -438,5 +441,42 @@ class TaskService {
     }
 
     await _db.collection('tasks').doc(taskId).update(updates);
+  }
+
+  // ── ACTIVATE TASK (admin choice after invite period) ─────────
+  Future<void> activateTask(String taskId) async {
+    await _db.collection('tasks').doc(taskId).update({'status': 'active'});
+  }
+
+  // ── DELETE TASK ────────────────────────────────────────────────
+  Future<void> deleteTask(String taskId) async {
+    final batch = _db.batch();
+
+    final assignments = await _db
+        .collection('task_assignments')
+        .where('taskId', isEqualTo: taskId)
+        .get();
+    for (final doc in assignments.docs) {
+      batch.delete(doc.reference);
+    }
+
+    final requests = await _db
+        .collection('progress_requests')
+        .where('taskId', isEqualTo: taskId)
+        .get();
+    for (final doc in requests.docs) {
+      batch.delete(doc.reference);
+    }
+
+    final chats = await _db
+        .collection('chats')
+        .where('taskId', isEqualTo: taskId)
+        .get();
+    for (final doc in chats.docs) {
+      batch.delete(doc.reference);
+    }
+
+    batch.delete(_db.collection('tasks').doc(taskId));
+    await batch.commit();
   }
 }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -476,6 +477,7 @@ class _TasksTabState extends State<_TasksTab> {
                   delegate: SliverChildBuilderDelegate(
                     (_, i) => _TaskCard(
                       task: tasks[i],
+                      taskService: widget.taskService,
                       onTap: () => Navigator.push(
                         context,
                         _fadeRoute(
@@ -969,25 +971,55 @@ class _StatPill extends StatelessWidget {
 class _TaskCard extends StatefulWidget {
   final TaskModel task;
   final VoidCallback onTap;
-  const _TaskCard({required this.task, required this.onTap});
+  final TaskService taskService;
+  const _TaskCard({required this.task, required this.onTap, required this.taskService});
   @override
   State<_TaskCard> createState() => _TaskCardState();
 }
 
 class _TaskCardState extends State<_TaskCard> {
   bool _pressed = false;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.task.status == 'inviting') {
+      _timer = Timer.periodic(const Duration(minutes: 1), (_) {
+        if (mounted) setState(() {});
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final task = widget.task;
     final urgency = taskUrgencyColor(task.createdAt, task.deadline);
-    final sd = _statusData(task.status);
+    final isExpiredInviting = task.status == 'inviting' &&
+        DateTime.now().isAfter(task.inviteDeadline);
+    final (String chipLabel, Color chipColor) = isExpiredInviting
+        ? ('EXPIRED', _C.orange)
+        : switch (task.status) {
+            'active' => ('ACTIVE', _C.green),
+            'completed' => ('DONE', _C.textSec),
+            _ => ('INVITING', _C.blue),
+          };
 
     return GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),
       onTapUp: (_) {
         setState(() => _pressed = false);
-        widget.onTap();
+        if (isExpiredInviting) {
+          _showExpiredDialog(context, task);
+        } else {
+          widget.onTap();
+        }
       },
       onTapCancel: () => setState(() => _pressed = false),
       child: AnimatedScale(
@@ -998,7 +1030,11 @@ class _TaskCardState extends State<_TaskCard> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: _C.border),
+            border: Border.all(
+              color: isExpiredInviting
+                  ? _C.orange.withValues(alpha: 0.4)
+                  : _C.border,
+            ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.05),
@@ -1015,7 +1051,7 @@ class _TaskCardState extends State<_TaskCard> {
                 Container(
                   width: 4,
                   decoration: BoxDecoration(
-                    color: urgency,
+                    color: isExpiredInviting ? _C.orange : urgency,
                     borderRadius: const BorderRadius.only(
                       topLeft: Radius.circular(20),
                       bottomLeft: Radius.circular(20),
@@ -1044,7 +1080,7 @@ class _TaskCardState extends State<_TaskCard> {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            _Chip(label: sd.$1, color: sd.$2),
+                            _Chip(label: chipLabel, color: chipColor),
                           ],
                         ),
                         const SizedBox(height: 5),
@@ -1109,6 +1145,48 @@ class _TaskCardState extends State<_TaskCard> {
                             ),
                           ],
                         ),
+                        // ── Invite timer / expired banner ──
+                        if (task.status == 'inviting') ...[
+                          const SizedBox(height: 8),
+                          if (isExpiredInviting)
+                            Row(
+                              children: [
+                                Icon(Icons.warning_amber_rounded,
+                                    size: 13, color: _C.orange),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Action required \u2014 Tap to resolve',
+                                  style: GoogleFonts.dmSans(
+                                    color: _C.orange,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            )
+                          else
+                            Builder(builder: (_) {
+                              final remaining =
+                                  task.inviteDeadline.difference(DateTime.now());
+                              final hours = remaining.inHours;
+                              final minutes = remaining.inMinutes % 60;
+                              return Row(
+                                children: [
+                                  const Icon(Icons.timer_outlined,
+                                      size: 13, color: _C.blue),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '${hours}h ${minutes}m left to accept invites',
+                                    style: GoogleFonts.dmSans(
+                                      color: _C.blue,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              );
+                            }),
+                        ],
                       ],
                     ),
                   ),
@@ -1121,11 +1199,173 @@ class _TaskCardState extends State<_TaskCard> {
     );
   }
 
-  (String, Color) _statusData(String s) => switch (s) {
-    'active' => ('ACTIVE', _C.green),
-    'completed' => ('DONE', _C.textSec),
-    _ => ('INVITING', _C.blue),
-  };
+  void _showExpiredDialog(BuildContext context, TaskModel task) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.12),
+                blurRadius: 30,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: _C.orange.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.timer_off_rounded,
+                        color: _C.orange, size: 18),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Invite Period Expired',
+                      style: GoogleFonts.dmSans(
+                        color: _C.textPri,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Text(
+                '${task.assignedVolunteers.length} of ${task.maxVolunteers} volunteers joined "${task.title}".',
+                style: GoogleFonts.dmSans(
+                  color: _C.textSec,
+                  fontSize: 13,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'What would you like to do?',
+                style: GoogleFonts.dmSans(
+                  color: _C.textSec,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(height: 20),
+              if (task.assignedVolunteers.isNotEmpty) ...[
+                GestureDetector(
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    await widget.taskService.activateTask(task.taskId);
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    decoration: BoxDecoration(
+                      color: _C.green,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _C.green.withValues(alpha: 0.3),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.play_arrow_rounded,
+                            color: Colors.white, size: 16),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Continue with ${task.assignedVolunteers.length} volunteer${task.assignedVolunteers.length > 1 ? 's' : ''}',
+                          style: GoogleFonts.dmSans(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
+              GestureDetector(
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await widget.taskService.deleteTask(task.taskId);
+                },
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _C.red.withValues(alpha: 0.4)),
+                    color: _C.red.withValues(alpha: 0.06),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.delete_outline_rounded,
+                          color: _C.red, size: 16),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Delete Task',
+                        style: GoogleFonts.dmSans(
+                          color: _C.red,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              GestureDetector(
+                onTap: () {
+                  Navigator.pop(ctx);
+                  widget.onTap();
+                },
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _C.border),
+                    color: _C.divider,
+                  ),
+                  child: Center(
+                    child: Text(
+                      'View Details',
+                      style: GoogleFonts.dmSans(
+                        color: _C.textSec,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

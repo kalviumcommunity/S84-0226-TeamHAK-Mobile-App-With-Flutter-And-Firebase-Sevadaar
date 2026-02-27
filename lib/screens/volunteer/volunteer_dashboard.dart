@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../models/task_model.dart';
 import '../../models/task_assignment_model.dart';
+import '../../models/progress_request_model.dart';
 import '../../models/user_model.dart';
 import '../../models/ngo_model.dart';
 import '../../services/auth_service.dart';
@@ -1123,23 +1124,63 @@ class _ExpandedTaskDetails extends StatelessWidget {
             final assignment = assignSnap.data;
             final myProgress = assignment?.individualProgress ?? 0.0;
 
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _ProgressBar(
-                  label: 'My Progress',
-                  progress: myProgress,
-                  color: _C.green,
-                ),
-                const SizedBox(height: 12),
-                if (task.status == 'active' && myProgress < 100)
-                  _UpdateProgressButton(
-                    task: task,
-                    volunteerId: volunteerId,
-                    currentProgress: myProgress,
-                    taskService: taskService,
-                  ),
-              ],
+            return StreamBuilder<List<ProgressRequestModel>>(
+              stream: taskService.streamVolunteerProgressRequests(
+                  task.taskId, volunteerId),
+              builder: (context, reqSnap) {
+                final requests = reqSnap.data ?? [];
+                final pendingReq = requests
+                    .where((r) => r.status == 'pending')
+                    .fold<ProgressRequestModel?>(
+                        null,
+                        (prev, r) => prev == null ||
+                                r.createdAt.isAfter(prev.createdAt)
+                            ? r
+                            : prev);
+                final pendingProgress = pendingReq?.requestedProgress;
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _ProgressBarWithPending(
+                      label: 'My Progress',
+                      progress: myProgress,
+                      pendingProgress: pendingProgress,
+                      color: _C.green,
+                    ),
+                    if (pendingReq != null) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          const Icon(Icons.hourglass_top_rounded,
+                              size: 13, color: _C.textTer),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              'Progress update to ${pendingProgress?.toStringAsFixed(0)}% is yet to be reviewed',
+                              style: GoogleFonts.dmSans(
+                                fontSize: 11,
+                                color: _C.textSec,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    if (task.status == 'active' &&
+                        myProgress < 100 &&
+                        pendingReq == null)
+                      _UpdateProgressButton(
+                        task: task,
+                        volunteerId: volunteerId,
+                        currentProgress: myProgress,
+                        taskService: taskService,
+                      ),
+                  ],
+                );
+              },
             );
           },
         ),
@@ -1148,19 +1189,23 @@ class _ExpandedTaskDetails extends StatelessWidget {
   }
 }
 
-// ─── Progress Bar ─────────────────────────────────────────────────────────────
-class _ProgressBar extends StatelessWidget {
+// ─── Progress Bar with Pending Progress ───────────────────────────────────────
+class _ProgressBarWithPending extends StatelessWidget {
   final String label;
   final double progress;
+  final double? pendingProgress;
   final Color color;
-  const _ProgressBar({
+  const _ProgressBarWithPending({
     required this.label,
     required this.progress,
+    this.pendingProgress,
     required this.color,
   });
 
   @override
   Widget build(BuildContext context) {
+    final hasPending =
+        pendingProgress != null && pendingProgress! > progress;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1175,24 +1220,69 @@ class _ProgressBar extends StatelessWidget {
                 color: _C.textSec,
               ),
             ),
-            Text(
-              '${progress.toStringAsFixed(0)}%',
-              style: GoogleFonts.dmSans(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: color,
-              ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '${progress.toStringAsFixed(0)}%',
+                  style: GoogleFonts.dmSans(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: color,
+                  ),
+                ),
+                if (hasPending) ...[
+                  Text(
+                    ' \u2192 ${pendingProgress!.toStringAsFixed(0)}%',
+                    style: GoogleFonts.dmSans(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: _C.textTer,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ],
         ),
         const SizedBox(height: 4),
         ClipRRect(
           borderRadius: BorderRadius.circular(6),
-          child: LinearProgressIndicator(
-            value: (progress / 100).clamp(0.0, 1.0),
-            backgroundColor: color.withValues(alpha: 0.1),
-            valueColor: AlwaysStoppedAnimation(color),
-            minHeight: 6,
+          child: SizedBox(
+            height: 6,
+            child: Stack(
+              children: [
+                // Background
+                Container(
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                ),
+                // Pending progress (grey)
+                if (hasPending)
+                  FractionallySizedBox(
+                    widthFactor:
+                        (pendingProgress! / 100).clamp(0.0, 1.0),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFBDBDBD),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                  ),
+                // Approved progress (green)
+                FractionallySizedBox(
+                  widthFactor: (progress / 100).clamp(0.0, 1.0),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: color,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ],
