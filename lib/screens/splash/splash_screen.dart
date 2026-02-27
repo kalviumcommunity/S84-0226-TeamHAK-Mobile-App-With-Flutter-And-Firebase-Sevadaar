@@ -8,12 +8,12 @@ import '../role_router.dart';
 /// Premium splash screen – NGO building construction animation
 /// with realistic painted volunteer figures.
 ///
-/// The controller runs for the full 8.5 s (animation + hold).
+/// The controller runs for the full 6 s (animation + hold).
 /// All visual content completes by ~71 %, leaving a live hold period
 /// where the controller keeps ticking so AnimatedBuilder never stops
 /// rebuilding and the CustomPaint layers stay on screen.
 ///
-/// Timeline (of 8500 ms controller):
+/// Timeline (of 6000 ms controller):
 ///   0.00 – 0.46  Building (foundation → details)
 ///   0.46 – 0.60  Volunteer figures walk in
 ///   0.58 – 0.64  Connection lines
@@ -33,7 +33,7 @@ class _SplashScreenState extends State<SplashScreen>
   static const Color _accent = Color(0xFF2196F3);
 
   // Controller covers the ENTIRE splash duration (animation + hold).
-  static const Duration _totalDuration = Duration(milliseconds: 4000);
+  static const Duration _totalDuration = Duration(milliseconds: 6000);
 
   late final AnimationController _controller;
   late final Animation<double> _buildingProgress;
@@ -41,36 +41,25 @@ class _SplashScreenState extends State<SplashScreen>
   late final Animation<double> _connectionProgress;
   late final Animation<double> _brandFade;
   late final Animation<double> _buildingScale;
-  
-  bool _shouldShowAnimation = true;
+
+  /// true when the current Firebase user is already signed in
+  bool _isLoggedIn = false;
 
   @override
   void initState() {
     super.initState();
 
     // Check if user is already logged in
-    User? currentUser;
     try {
-      currentUser = FirebaseAuth.instance.currentUser;
-    } catch (e) {
-      // Firebase not available (e.g., on Linux/Windows dev mode)
-      currentUser = null;
+      _isLoggedIn = FirebaseAuth.instance.currentUser != null;
+    } catch (_) {
+      _isLoggedIn = false;
     }
 
-    // If user is already logged in (existing user), skip animation and go to auth check
-    if (currentUser != null) {
-      _shouldShowAnimation = false;
-      // Navigate immediately to RoleRouter without animation
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _navigateToAuthCheck();
-      });
-      return;
-    }
-
-    // For new/unauthenticated users, proceed with splash animation
+    // Always play the full splash animation regardless of auth state
     _controller = AnimationController(vsync: this, duration: _totalDuration);
 
-    // Building painter progress (0.0 – 0.46 ≈ 3900 ms)
+    // Building painter progress (0.0 – 0.46)
     _buildingProgress = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
@@ -78,7 +67,7 @@ class _SplashScreenState extends State<SplashScreen>
       ),
     );
 
-    // Volunteer walk-in (0.46 – 0.60 ≈ 1190 ms)
+    // Volunteer walk-in (0.46 – 0.60)
     _volunteerProgress = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
@@ -86,7 +75,7 @@ class _SplashScreenState extends State<SplashScreen>
       ),
     );
 
-    // Connection lines (0.58 – 0.64 ≈ 510 ms)
+    // Connection lines (0.58 – 0.64)
     _connectionProgress = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
@@ -94,7 +83,7 @@ class _SplashScreenState extends State<SplashScreen>
       ),
     );
 
-    // Scale-up (0.62 – 0.71 ≈ 765 ms)
+    // Scale-up (0.62 – 0.71)
     _buildingScale = Tween<double>(begin: 1.0, end: 1.04).animate(
       CurvedAnimation(
         parent: _controller,
@@ -102,7 +91,7 @@ class _SplashScreenState extends State<SplashScreen>
       ),
     );
 
-    // Brand text (0.60 – 0.69 ≈ 765 ms)
+    // Brand text (0.60 – 0.69)
     _brandFade = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
@@ -112,10 +101,16 @@ class _SplashScreenState extends State<SplashScreen>
 
     _controller.forward();
 
-    // Navigate when the controller completes (at 4000 ms).
+    // After the 6 s animation completes, route based on auth state:
+    //  • Logged in  → RoleRouter (dashboard) — skips the landing/onboarding page
+    //  • Logged out → LandingPage (onboarding)
     _controller.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
-        _navigateToLanding();
+        if (_isLoggedIn) {
+          _navigateToAuthCheck();
+        } else {
+          _navigateToLanding();
+        }
       }
     });
   }
@@ -151,42 +146,12 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   void dispose() {
-    if (_shouldShowAnimation) {
-      _controller.dispose();
-    }
+    _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    // If user is already logged in (returning user), show loading screen
-    if (!_shouldShowAnimation) {
-      return Scaffold(
-        backgroundColor: const Color(0xFF06110B),
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const CircularProgressIndicator(
-                color: Color(0xFF4CAF50),
-                strokeWidth: 2.5,
-              ),
-              const SizedBox(height: 20),
-              Text(
-                'Loading your dashboard...',
-                style: GoogleFonts.poppins(
-                  fontSize: 13,
-                  color: const Color(0xFF81C784),
-                  fontWeight: FontWeight.w300,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // For new users, show splash animation
     final size = MediaQuery.of(context).size;
 
     // Painter canvas – make it big (90 % width, 55 % height)
