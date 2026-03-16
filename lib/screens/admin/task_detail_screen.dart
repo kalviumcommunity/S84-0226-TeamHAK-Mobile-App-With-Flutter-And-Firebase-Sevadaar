@@ -110,7 +110,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
   Widget _buildBody(TaskModel task) {
     final isCompleted = task.status == 'completed';
-    final urgency = isCompleted ? _C.green : taskUrgencyColor(task.createdAt, task.deadline);
+    final urgency = isCompleted
+        ? _C.green
+        : taskUrgencyColor(task.createdAt, task.deadline);
 
     return SafeArea(
       child: Column(
@@ -426,108 +428,199 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   }
 
   Future<void> _confirmRemove(TaskModel task, String volunteerId) async {
-    final ok = await showDialog<bool>(
+    String? selectedReason;
+    final otherReasonCtrl = TextEditingController();
+
+    final reasons = [
+      'Not actively participating in task activities.',
+      'Not updating daily progress.',
+      'Violated NGO/task guidelines.',
+      'No longer available/responsive.',
+      'Other',
+    ];
+
+    final result = await showDialog<String>(
       context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 30,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Remove Volunteer?',
-                style: GoogleFonts.dmSans(
-                  color: _C.textPri,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 30,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'This volunteer will be removed and progress recalculated.',
-                style: GoogleFonts.dmSans(
-                  color: _C.textSec,
-                  fontSize: 13,
-                  height: 1.5,
-                ),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => Navigator.pop(ctx, false),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: _C.border),
-                          color: _C.divider,
-                        ),
-                        child: Center(
-                          child: Text(
-                            'Cancel',
-                            style: GoogleFonts.dmSans(
-                              color: _C.textSec,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Remove Volunteer?',
+                        style: GoogleFonts.dmSans(
+                          color: _C.textPri,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => Navigator.pop(ctx, true),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          color: _C.red,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: _C.red.withValues(alpha: 0.3),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Center(
-                          child: Text(
-                            'Remove',
-                            style: GoogleFonts.dmSans(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
+                      const SizedBox(height: 10),
+                      Text(
+                        'Please specify the reason. This will be visible to the volunteer.',
+                        style: GoogleFonts.dmSans(
+                          color: _C.textSec,
+                          fontSize: 14,
                         ),
                       ),
-                    ),
+                      const SizedBox(height: 16),
+                      Column(
+                        children: reasons.map((reason) {
+                          return InkWell(
+                            onTap: () {
+                              setState(() => selectedReason = reason);
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    selectedReason == reason
+                                        ? Icons.radio_button_checked
+                                        : Icons.radio_button_unchecked,
+                                    color: selectedReason == reason
+                                        ? _C.red
+                                        : _C.textTer,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      reason,
+                                      style: GoogleFonts.dmSans(
+                                        color: _C.textPri,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                      if (selectedReason == 'Other') ...[
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: otherReasonCtrl,
+                          decoration: InputDecoration(
+                            hintText: 'Type custom reason...',
+                            hintStyle: GoogleFonts.dmSans(color: _C.textTer),
+                            filled: true,
+                            fillColor: _C.bg,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                          maxLines: 2,
+                        ),
+                      ],
+                      const SizedBox(height: 24),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () => Navigator.pop(ctx, null),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: _C.border),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    'Cancel',
+                                    style: GoogleFonts.dmSans(
+                                      color: _C.textSec,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () {
+                                if (selectedReason == null) return;
+                                if (selectedReason == 'Other' &&
+                                    otherReasonCtrl.text.trim().isEmpty) {
+                                  return;
+                                }
+                                final finalReason = selectedReason == 'Other'
+                                    ? otherReasonCtrl.text.trim()
+                                    : selectedReason;
+                                Navigator.pop(ctx, finalReason);
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _C.red,
+                                  borderRadius: BorderRadius.circular(12),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: _C.red.withValues(alpha: 0.3),
+                                      blurRadius: 12,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    'Remove',
+                                    style: GoogleFonts.dmSans(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
-            ],
-          ),
-        ),
-      ),
+            );
+          },
+        );
+      },
     );
-    if (ok != true) return;
+
+    if (result == null || result.isEmpty) return;
+
     try {
-      await widget.taskService.removeVolunteer(widget.taskId, volunteerId);
+      await widget.taskService.removeVolunteer(
+        taskId: widget.taskId,
+        taskTitle: task.title,
+        volunteerId: volunteerId,
+        reason: result,
+      );
       if (!mounted) return;
       _snack('Volunteer removed.', _C.orange, Icons.person_remove_rounded);
     } catch (e) {
@@ -567,7 +660,9 @@ class _ProgressHeroCard extends StatelessWidget {
     final total = task.deadline.difference(task.createdAt).inMinutes;
     final remaining = task.deadline.difference(now).inMinutes;
     final pct = total > 0 ? (remaining / total) * 100 : 0.0;
-    final timeLabel = isCompleted ? 'COMPLETED' : (pct > 50 ? 'ON TRACK' : (pct > 30 ? 'CAUTION' : 'URGENT'));
+    final timeLabel = isCompleted
+        ? 'COMPLETED'
+        : (pct > 50 ? 'ON TRACK' : (pct > 30 ? 'CAUTION' : 'URGENT'));
 
     // Hero card uses dark navy theme like SA dashboard hero
     return Container(
@@ -615,7 +710,11 @@ class _ProgressHeroCard extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           if (isCompleted)
-                            Icon(Icons.check_circle_rounded, color: urgency, size: 32)
+                            Icon(
+                              Icons.check_circle_rounded,
+                              color: urgency,
+                              size: 32,
+                            )
                           else
                             Text(
                               '${task.mainProgress.toStringAsFixed(0)}%',
@@ -677,7 +776,9 @@ class _ProgressHeroCard extends StatelessWidget {
                 bottomLeft: Radius.circular(24),
                 bottomRight: Radius.circular(24),
               ),
-              border: Border(top: BorderSide(color: urgency.withValues(alpha: 0.2))),
+              border: Border(
+                top: BorderSide(color: urgency.withValues(alpha: 0.2)),
+              ),
             ),
             child: Row(
               children: [
@@ -688,7 +789,10 @@ class _ProgressHeroCard extends StatelessWidget {
                     color: urgency,
                     shape: BoxShape.circle,
                     boxShadow: [
-                      BoxShadow(color: urgency.withValues(alpha: 0.5), blurRadius: 6),
+                      BoxShadow(
+                        color: urgency.withValues(alpha: 0.5),
+                        blurRadius: 6,
+                      ),
                     ],
                   ),
                 ),
@@ -707,8 +811,8 @@ class _ProgressHeroCard extends StatelessWidget {
                   isCompleted
                       ? 'Task finished'
                       : (remaining > 0
-                          ? '${(remaining / 60).floor()}h ${remaining % 60}m left'
-                          : 'Overdue'),
+                            ? '${(remaining / 60).floor()}h ${remaining % 60}m left'
+                            : 'Overdue'),
                   style: GoogleFonts.dmSans(
                     color: urgency.withValues(alpha: 0.7),
                     fontSize: 12,
@@ -1188,7 +1292,9 @@ class _InlineRequestCardState extends State<_InlineRequestCard> {
                           padding: const EdgeInsets.symmetric(vertical: 9),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: _C.red.withValues(alpha: 0.4)),
+                            border: Border.all(
+                              color: _C.red.withValues(alpha: 0.4),
+                            ),
                             color: _C.redLight,
                           ),
                           child: Row(
