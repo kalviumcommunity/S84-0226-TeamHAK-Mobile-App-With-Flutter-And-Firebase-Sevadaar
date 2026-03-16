@@ -534,6 +534,10 @@ class TaskService {
     }
 
     await _db.collection('tasks').doc(taskId).update(updates);
+
+    if (updates['status'] == 'completed') {
+      await _chatService.lockGroupChat(taskId);
+    }
   }
 
   // ── ACTIVATE TASK (admin choice after invite period) ─────────

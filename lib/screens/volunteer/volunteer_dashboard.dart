@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../models/task_model.dart';
 import '../../models/task_assignment_model.dart';
@@ -9,6 +10,7 @@ import '../../models/ngo_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/ngo_service.dart';
 import '../../services/task_service.dart';
+import '../../state/chat_provider.dart';
 import '../auth/login_screen.dart';
 import '../chat/chat_list_screen.dart';
 
@@ -187,6 +189,45 @@ class _VolunteerDashboardState extends State<VolunteerDashboard>
                   },
                 )
               : null,
+          chatBadge: _currentUser != null && _currentUser!.ngoId != null
+              ? Consumer(
+                  builder: (context, ref, child) {
+                    final chatsAsync = ref.watch(userChatsProvider(ChatParams(
+                      uid: _currentUser!.uid,
+                      ngoId: _currentUser!.ngoId!,
+                    )));
+                    return chatsAsync.maybeWhen(
+                      data: (chats) {
+                        int totalUnread = 0;
+                        for (var c in chats) {
+                           if (!c.archivedBy.contains(_currentUser!.uid)) {
+                             totalUnread += (c.unreadCounts[_currentUser!.uid] ?? 0);
+                           }
+                        }
+                        if (totalUnread > 0) {
+                          return Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(
+                              color: _C.red,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Text(
+                              totalUnread > 9 ? '9+' : '$totalUnread',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      },
+                      orElse: () => const SizedBox.shrink(),
+                    );
+                  },
+                )
+              : null,
           onTab: (i) {
             if (i == 4) {
               _confirmSignOut();
@@ -256,11 +297,13 @@ class _BottomNav extends StatelessWidget {
   final ValueChanged<int> onTab;
   final Widget? inviteBadge;
   final Widget? ngoTasksBadge;
+  final Widget? chatBadge;
   const _BottomNav({
     required this.selected,
     required this.onTab,
     this.inviteBadge,
     this.ngoTasksBadge,
+    this.chatBadge,
   });
 
   @override
@@ -307,6 +350,7 @@ class _BottomNav extends StatelessWidget {
                 label: 'Messages',
                 selected: selected == 3,
                 onTap: () => onTab(3),
+                badge: chatBadge,
               ),
               _NavItem(
                 icon: Icons.logout_rounded,
