@@ -10,6 +10,10 @@ class ChatModel {
   final String lastMessage;
   final DateTime lastMessageTime;
   final bool isArchived;
+  final bool isLocked;
+  final Map<String, int> unreadCounts;
+  final List<String> archivedBy;
+  final List<String> deletedBy;
 
   const ChatModel({
     required this.chatId,
@@ -21,6 +25,10 @@ class ChatModel {
     this.lastMessage = '',
     required this.lastMessageTime,
     this.isArchived = false,
+    this.isLocked = false,
+    this.unreadCounts = const {},
+    this.archivedBy = const [],
+    this.deletedBy = const [],
   });
 
   factory ChatModel.fromMap(Map<String, dynamic> map, String id) {
@@ -34,6 +42,10 @@ class ChatModel {
       lastMessage: map['lastMessage'] ?? '',
       lastMessageTime: (map['lastMessageTime'] as Timestamp?)?.toDate() ?? DateTime.now(),
       isArchived: map['isArchived'] ?? false,
+      isLocked: map['isLocked'] ?? false,
+      unreadCounts: Map<String, int>.from(map['unreadCounts'] ?? {}),
+      archivedBy: List<String>.from(map['archivedBy'] ?? []),
+      deletedBy: List<String>.from(map['deletedBy'] ?? []),
     );
   }
 
@@ -47,6 +59,10 @@ class ChatModel {
       'lastMessage': lastMessage,
       'lastMessageTime': Timestamp.fromDate(lastMessageTime),
       'isArchived': isArchived,
+      'isLocked': isLocked,
+      'unreadCounts': unreadCounts,
+      'archivedBy': archivedBy,
+      'deletedBy': deletedBy,
     };
   }
 }

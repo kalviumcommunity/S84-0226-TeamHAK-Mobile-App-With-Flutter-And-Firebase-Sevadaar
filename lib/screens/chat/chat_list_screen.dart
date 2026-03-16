@@ -6,12 +6,15 @@ import '../../models/chat_model.dart';
 import '../../state/chat_provider.dart';
 import '../../services/task_service.dart';
 import 'chat_room_screen.dart';
+import 'archived_chats_screen.dart';
 
 class _C {
   static const bg = Color(0xFFEEF2F8);
   static const blue = Color(0xFF4A6CF7);
   static const textPri = Color(0xFF0D1B3E);
   static const textSec = Color(0xFF6B7280);
+  static const red = Color(0xFFEF4444);
+  static const orange = Color(0xFFF97316);
 }
 
 class ChatListScreen extends ConsumerWidget {
@@ -22,7 +25,9 @@ class ChatListScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (currentUser.ngoId == null || currentUser.ngoId!.isEmpty) {
-      return const Center(child: Text('You are not associated with an NGO yet.'));
+      return const Scaffold(
+        body: Center(child: Text('You are not associated with an NGO yet.')),
+      );
     }
 
     final chatsAsync = ref.watch(userChatsProvider(ChatParams(
@@ -34,7 +39,7 @@ class ChatListScreen extends ConsumerWidget {
       backgroundColor: _C.bg,
       appBar: AppBar(
         title: Text(
-          'Chats',
+          'Active Chats',
           style: GoogleFonts.plusJakartaSans(
             color: _C.textPri,
             fontWeight: FontWeight.w700,
@@ -43,6 +48,19 @@ class ChatListScreen extends ConsumerWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.archive_outlined, color: _C.textSec),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ArchivedChatsScreen(currentUser: currentUser),
+                ),
+              );
+            },
+          )
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showStartChatModal(context, ref),
@@ -50,11 +68,16 @@ class ChatListScreen extends ConsumerWidget {
         child: const Icon(Icons.message_rounded, color: Colors.white),
       ),
       body: chatsAsync.when(
-        data: (chats) {
-          if (chats.isEmpty) {
+        data: (allChats) {
+          // Filter out chats archived by this user
+          final activeChats = allChats
+              .where((c) => !c.archivedBy.contains(currentUser.uid))
+              .toList();
+
+          if (activeChats.isEmpty) {
             return const Center(
               child: Text(
-                'No conversations yet.',
+                'No active conversations.',
                 style: TextStyle(color: _C.textSec),
               ),
             );
@@ -62,61 +85,136 @@ class ChatListScreen extends ConsumerWidget {
 
           return ListView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            itemCount: chats.length,
+            itemCount: activeChats.length,
             itemBuilder: (context, index) {
-              final chat = chats[index];
-              final isGroup = chat.type == 'group';
-              final title = chat.title ?? 'Chat';
-
-              return Card(
-                elevation: 0,
-                color: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                margin: const EdgeInsets.only(bottom: 12),
-                child: ListTile(
-                  contentPadding: const EdgeInsets.all(12),
-                  leading: CircleAvatar(
-                    radius: 24,
-                    backgroundColor: isGroup ? _C.blue.withValues(alpha:0.1) : Colors.grey.shade200,
-                    child: Icon(
-                      isGroup ? Icons.groups_rounded : Icons.person_rounded,
-                      color: isGroup ? _C.blue : _C.textSec,
-                    ),
-                  ),
-                  title: Text(
-                    title,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 16,
-                      color: _C.textPri,
-                    ),
-                  ),
-                  subtitle: Text(
-                    chat.lastMessage,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: _C.textSec),
-                  ),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ChatRoomScreen(
-                          chat: chat,
-                          currentUser: currentUser,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              );
+              final chat = activeChats[index];
+              return _buildChatTile(context, ref, chat);
             },
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, stack) => Center(child: Text('Error: $err')),
+      ),
+    );
+  }
+
+  Widget _buildChatTile(BuildContext context, WidgetRef ref, ChatModel chat) {
+    final isGroup = chat.type == 'group';
+    final title = chat.title ?? 'Chat';
+    final unreadCount = chat.unreadCounts[currentUser.uid] ?? 0;
+
+    return Dismissible(
+      key: Key(chat.chatId),
+      background: Container(
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.only(left: 20),
+        color: _C.orange.withValues(alpha: 0.8),
+        child: const Icon(Icons.archive, color: Colors.white),
+      ),
+      secondaryBackground: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        color: _C.red.withValues(alpha: 0.8),
+        child: const Icon(Icons.delete, color: Colors.white),
+      ),
+      onDismissed: (direction) async {
+        final chatService = ref.read(chatServiceProvider);
+        if (direction == DismissDirection.startToEnd) {
+          // Archive
+          await chatService.archiveChat(chat.chatId, currentUser.uid);
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('$title archived')),
+            );
+          }
+        } else {
+          // Delete/Hide
+          await chatService.deleteChat(chat.chatId, currentUser.uid);
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('$title deleted')),
+            );
+          }
+        }
+      },
+      child: Card(
+        elevation: 0,
+        color: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        margin: const EdgeInsets.only(bottom: 12),
+        child: ListTile(
+          contentPadding: const EdgeInsets.all(12),
+          leading: CircleAvatar(
+            radius: 24,
+            backgroundColor: isGroup ? _C.blue.withValues(alpha: 0.1) : Colors.grey.shade200,
+            child: Icon(
+              isGroup ? Icons.groups_rounded : Icons.person_rounded,
+              color: isGroup ? _C.blue : _C.textSec,
+            ),
+          ),
+          title: Text(
+            title,
+            style: GoogleFonts.plusJakartaSans(
+              fontWeight: unreadCount > 0 ? FontWeight.w800 : FontWeight.w600,
+              fontSize: 16,
+              color: _C.textPri,
+            ),
+          ),
+          subtitle: Text(
+            chat.lastMessage,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: unreadCount > 0 ? _C.textPri : _C.textSec,
+              fontWeight: unreadCount > 0 ? FontWeight.w600 : FontWeight.normal,
+            ),
+          ),
+          trailing: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              if (chat.isLocked)
+                const Icon(Icons.check_circle, color: Colors.green, size: 16),
+              if (unreadCount > 0)
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  margin: const EdgeInsets.only(top: 4),
+                  decoration: const BoxDecoration(
+                    color: _C.blue,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(
+                    unreadCount.toString(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          onTap: () async {
+            // Mark as read immediately when tapping
+            if (unreadCount > 0) {
+              await ref.read(chatServiceProvider).markChatAsRead(chat.chatId, currentUser.uid);
+            }
+            
+            if (context.mounted) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ChatRoomScreen(
+                    chat: chat,
+                    currentUser: currentUser,
+                  ),
+                ),
+              );
+            }
+          },
+        ),
       ),
     );
   }
@@ -185,6 +283,11 @@ class ChatListScreen extends ConsumerWidget {
                               participants: [currentUser.uid, user.uid],
                               lastMessage: '',
                               lastMessageTime: DateTime.now(),
+                              isArchived: false,
+                              isLocked: false,
+                              unreadCounts: {},
+                              archivedBy: [],
+                              deletedBy: [],
                             );
                             if (context.mounted) {
                               Navigator.push(

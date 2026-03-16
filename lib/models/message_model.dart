@@ -7,6 +7,7 @@ class MessageModel {
   final String senderRole;
   final String text;
   final DateTime createdAt;
+  final List<String> readBy;
 
   const MessageModel({
     required this.messageId,
@@ -15,6 +16,7 @@ class MessageModel {
     required this.senderRole,
     required this.text,
     required this.createdAt,
+    this.readBy = const [],
   });
 
   factory MessageModel.fromMap(Map<String, dynamic> map, String id) {
@@ -25,6 +27,7 @@ class MessageModel {
       senderRole: map['senderRole'] ?? 'volunteer',
       text: map['text'] ?? '',
       createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      readBy: List<String>.from(map['readBy'] ?? []),
     );
   }
 
@@ -35,6 +38,7 @@ class MessageModel {
       'senderRole': senderRole,
       'text': text,
       'createdAt': Timestamp.fromDate(createdAt),
+      'readBy': readBy,
     };
   }
 }
