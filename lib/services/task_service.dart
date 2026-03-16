@@ -46,7 +46,9 @@ class TaskService {
       'mainProgress': 0.0,
       'createdAt': FieldValue.serverTimestamp(),
       'deadline': Timestamp.fromDate(deadline),
-      'inviteDeadline': Timestamp.fromDate(DateTime.now().add(const Duration(hours: 24))),
+      'inviteDeadline': Timestamp.fromDate(
+        DateTime.now().add(const Duration(hours: 24)),
+      ),
       'adminFinalNote': '',
     });
 
@@ -191,24 +193,51 @@ class TaskService {
   }
 
   // ── REMOVE VOLUNTEER FROM TASK ────────────────────────────────
-  Future<void> removeVolunteer(String taskId, String volunteerId) async {
-    final assignSnap = await _db
-        .collection('task_assignments')
-        .where('taskId', isEqualTo: taskId)
-        .where('volunteerId', isEqualTo: volunteerId)
-        .limit(1)
-        .get();
+  Future<void> removeVolunteer({
+    required String taskId,
+    required String taskTitle,
+    required String volunteerId,
+    required String reason,
+  }) async {
+    final taskRef = _db.collection('tasks').doc(taskId);
 
-    final batch = _db.batch();
+    await _db.runTransaction((tx) async {
+      final taskDoc = await tx.get(taskRef);
+      if (!taskDoc.exists) return;
 
-    if (assignSnap.docs.isNotEmpty) {
-      batch.delete(assignSnap.docs.first.reference);
-    }
+      final task = TaskModel.fromMap(taskDoc.data()!, taskDoc.id);
 
-    batch.update(_db.collection('tasks').doc(taskId), {
-      'assignedVolunteers': FieldValue.arrayRemove([volunteerId]),
+      // Decrement maxVolunteers if it's > 0 to permanently reduce required volunteers
+      final newMaxVolunteers = (task.maxVolunteers > 0)
+          ? task.maxVolunteers - 1
+          : 0;
+
+      tx.update(taskRef, {
+        'assignedVolunteers': FieldValue.arrayRemove([volunteerId]),
+        'maxVolunteers': newMaxVolunteers,
+      });
+
+      // Find and delete task assignments for this volunteer
+      final assignRef = _db
+          .collection('task_assignments')
+          .doc(_assignmentId(taskId, volunteerId));
+      tx.delete(assignRef);
+
+      // Create a notice for the volunteer
+      final noticeRef = _db.collection('notices').doc();
+      tx.set(noticeRef, {
+        'volunteerId': volunteerId,
+        'taskId': taskId,
+        'taskTitle': taskTitle,
+        'reason': reason,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
     });
 
+    // We do these normally outside transaction as they involve other collections that might be large
+    final batch = _db.batch();
+
+    // Reject any pending progress requests
     final pendingReqs = await _db
         .collection('progress_requests')
         .where('taskId', isEqualTo: taskId)
@@ -222,10 +251,21 @@ class TaskService {
 
     await batch.commit();
 
-    // Remove user from the group chat
+    // Remove user from the group chat completely
     await _chatService.removeUserFromGroupChat(taskId, volunteerId);
 
+    // Recalculate main progress for remaining volunteers
     await _recalculateMainProgress(taskId);
+
+    // Send a push notification
+    await _notifService.sendNotification(
+      recipientUid: volunteerId,
+      title: 'Removed from Task',
+      body:
+          'You have been removed from task "$taskTitle". Check your Notices tab for more information.',
+      type: 'task_removed',
+      taskId: taskId,
+    );
   }
 
   // ── COMPLETE TASK ─────────────────────────────────────────────
@@ -258,8 +298,10 @@ class TaskService {
         .collection('tasks')
         .where('ngoId', isEqualTo: ngoId)
         .snapshots()
-        .map((snap) =>
-            snap.docs.map((d) => TaskModel.fromMap(d.data(), d.id)).toList());
+        .map(
+          (snap) =>
+              snap.docs.map((d) => TaskModel.fromMap(d.data(), d.id)).toList(),
+        );
   }
 
   /// Tasks where the volunteer is in assignedVolunteers.
@@ -268,8 +310,10 @@ class TaskService {
         .collection('tasks')
         .where('assignedVolunteers', arrayContains: volunteerId)
         .snapshots()
-        .map((snap) =>
-            snap.docs.map((d) => TaskModel.fromMap(d.data(), d.id)).toList());
+        .map(
+          (snap) =>
+              snap.docs.map((d) => TaskModel.fromMap(d.data(), d.id)).toList(),
+        );
   }
 
   /// Tasks the volunteer can respond to: all 'inviting' tasks in their NGO
@@ -286,20 +330,26 @@ class TaskService {
           .where('ngoId', isEqualTo: ngoId)
           .where('status', isEqualTo: 'inviting')
           .snapshots()
-          .map((snap) => snap.docs
-              .map((d) => TaskModel.fromMap(d.data(), d.id))
-              .where((t) =>
-                  !t.assignedVolunteers.contains(volunteerId) &&
-                  !t.declinedBy.contains(volunteerId))
-              .toList());
+          .map(
+            (snap) => snap.docs
+                .map((d) => TaskModel.fromMap(d.data(), d.id))
+                .where(
+                  (t) =>
+                      !t.assignedVolunteers.contains(volunteerId) &&
+                      !t.declinedBy.contains(volunteerId),
+                )
+                .toList(),
+          );
     }
     // Fallback: only explicitly invited tasks.
     return _db
         .collection('tasks')
         .where('pendingInvites', arrayContains: volunteerId)
         .snapshots()
-        .map((snap) =>
-            snap.docs.map((d) => TaskModel.fromMap(d.data(), d.id)).toList());
+        .map(
+          (snap) =>
+              snap.docs.map((d) => TaskModel.fromMap(d.data(), d.id)).toList(),
+        );
   }
 
   /// Get the volunteer's individual assignment for a task.
@@ -325,9 +375,9 @@ class TaskService {
         .doc(_assignmentId(taskId, volunteerId))
         .snapshots()
         .map((doc) {
-      if (!doc.exists) return null;
-      return TaskAssignmentModel.fromMap(doc.data()!, doc.id);
-    });
+          if (!doc.exists) return null;
+          return TaskAssignmentModel.fromMap(doc.data()!, doc.id);
+        });
   }
 
   // ── ACCEPT / DECLINE INVITATIONS ──────────────────────────────
@@ -336,8 +386,9 @@ class TaskService {
   /// and create a task_assignment document.
   Future<void> acceptInvite(String taskId, String volunteerId) async {
     final taskRef = _db.collection('tasks').doc(taskId);
-    final assignRef =
-        _db.collection('task_assignments').doc(_assignmentId(taskId, volunteerId));
+    final assignRef = _db
+        .collection('task_assignments')
+        .doc(_assignmentId(taskId, volunteerId));
 
     await _db.runTransaction((tx) async {
       final taskDoc = await tx.get(taskRef);
@@ -362,9 +413,11 @@ class TaskService {
         updates['assignedVolunteers'] = FieldValue.arrayUnion([volunteerId]);
       }
 
-      final assignedCountAfter =
-          isAlreadyAssigned ? currentAssignedCount : currentAssignedCount + 1;
-      if (task.status == 'inviting' && assignedCountAfter >= task.maxVolunteers) {
+      final assignedCountAfter = isAlreadyAssigned
+          ? currentAssignedCount
+          : currentAssignedCount + 1;
+      if (task.status == 'inviting' &&
+          assignedCountAfter >= task.maxVolunteers) {
         updates['status'] = 'active';
       }
 
@@ -394,8 +447,9 @@ class TaskService {
   /// Volunteer joins a task directly (not through invitation).
   Future<void> joinTask(String taskId, String volunteerId) async {
     final taskRef = _db.collection('tasks').doc(taskId);
-    final assignRef =
-        _db.collection('task_assignments').doc(_assignmentId(taskId, volunteerId));
+    final assignRef = _db
+        .collection('task_assignments')
+        .doc(_assignmentId(taskId, volunteerId));
 
     await _db.runTransaction((tx) async {
       final taskDoc = await tx.get(taskRef);
@@ -420,7 +474,8 @@ class TaskService {
       };
 
       final assignedCountAfter = task.assignedVolunteers.length + 1;
-      if (task.status == 'inviting' && assignedCountAfter >= task.maxVolunteers) {
+      if (task.status == 'inviting' &&
+          assignedCountAfter >= task.maxVolunteers) {
         updates['status'] = 'active';
       }
 
@@ -471,8 +526,7 @@ class TaskService {
     final taskDoc = await _db.collection('tasks').doc(taskId).get();
     if (taskDoc.exists) {
       final ngoId = taskDoc.data()!['ngoId'] as String? ?? '';
-      final volunteerDoc =
-          await _db.collection('users').doc(volunteerId).get();
+      final volunteerDoc = await _db.collection('users').doc(volunteerId).get();
       final volunteerName =
           volunteerDoc.data()?['name'] as String? ?? 'A volunteer';
 
@@ -498,9 +552,11 @@ class TaskService {
         .where('taskId', isEqualTo: taskId)
         .where('volunteerId', isEqualTo: volunteerId)
         .snapshots()
-        .map((snap) => snap.docs
-            .map((d) => ProgressRequestModel.fromMap(d.data(), d.id))
-            .toList());
+        .map(
+          (snap) => snap.docs
+              .map((d) => ProgressRequestModel.fromMap(d.data(), d.id))
+              .toList(),
+        );
   }
 
   // ── INTERNAL: Recalculate mainProgress ───────────────────────

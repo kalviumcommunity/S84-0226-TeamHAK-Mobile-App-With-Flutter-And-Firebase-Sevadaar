@@ -13,6 +13,7 @@ import '../../services/task_service.dart';
 import '../../state/chat_provider.dart';
 import '../auth/login_screen.dart';
 import '../chat/chat_list_screen.dart';
+import 'notices_tab.dart';
 
 // ─── Design Tokens (matches admin dashboard) ─────────────────────────────────
 class _C {
@@ -141,10 +142,7 @@ class _VolunteerDashboardState extends State<VolunteerDashboard>
       child: Scaffold(
         backgroundColor: _C.bg,
         extendBody: true,
-        body: FadeTransition(
-          opacity: _fadeAnim,
-          child: _buildBody(),
-        ),
+        body: FadeTransition(opacity: _fadeAnim, child: _buildBody()),
         bottomNavigationBar: _BottomNav(
           selected: _selectedTab,
           inviteBadge: _currentUser != null
@@ -165,17 +163,22 @@ class _VolunteerDashboardState extends State<VolunteerDashboard>
                       : const SizedBox.shrink(),
                 )
               : null,
-          ngoTasksBadge: _currentUser != null &&
+          ngoTasksBadge:
+              _currentUser != null &&
                   _currentUser!.ngoId != null &&
                   _currentUser!.ngoId!.isNotEmpty
               ? StreamBuilder<List<TaskModel>>(
                   stream: _taskService.streamNgoTasks(_currentUser!.ngoId!),
                   builder: (_, snap) {
                     final uid = _currentUser!.uid;
-                    final open = (snap.data ?? []).where((t) =>
-                        t.status == 'inviting' &&
-                        !t.assignedVolunteers.contains(uid) &&
-                        !t.declinedBy.contains(uid)).toList();
+                    final open = (snap.data ?? [])
+                        .where(
+                          (t) =>
+                              t.status == 'inviting' &&
+                              !t.assignedVolunteers.contains(uid) &&
+                              !t.declinedBy.contains(uid),
+                        )
+                        .toList();
                     return open.isNotEmpty
                         ? Container(
                             width: 7,
@@ -192,17 +195,22 @@ class _VolunteerDashboardState extends State<VolunteerDashboard>
           chatBadge: _currentUser != null && _currentUser!.ngoId != null
               ? Consumer(
                   builder: (context, ref, child) {
-                    final chatsAsync = ref.watch(userChatsProvider(ChatParams(
-                      uid: _currentUser!.uid,
-                      ngoId: _currentUser!.ngoId!,
-                    )));
+                    final chatsAsync = ref.watch(
+                      userChatsProvider(
+                        ChatParams(
+                          uid: _currentUser!.uid,
+                          ngoId: _currentUser!.ngoId!,
+                        ),
+                      ),
+                    );
                     return chatsAsync.maybeWhen(
                       data: (chats) {
                         int totalUnread = 0;
                         for (var c in chats) {
-                           if (!c.archivedBy.contains(_currentUser!.uid)) {
-                             totalUnread += (c.unreadCounts[_currentUser!.uid] ?? 0);
-                           }
+                          if (!c.archivedBy.contains(_currentUser!.uid)) {
+                            totalUnread +=
+                                (c.unreadCounts[_currentUser!.uid] ?? 0);
+                          }
                         }
                         if (totalUnread > 0) {
                           return Container(
@@ -229,7 +237,7 @@ class _VolunteerDashboardState extends State<VolunteerDashboard>
                 )
               : null,
           onTab: (i) {
-            if (i == 4) {
+            if (i == 5) {
               _confirmSignOut();
               return;
             }
@@ -260,6 +268,8 @@ class _VolunteerDashboardState extends State<VolunteerDashboard>
         );
       case 3:
         return ChatListScreen(currentUser: _currentUser!);
+      case 4:
+        return NoticesTab(currentUser: _currentUser!);
       default:
         return _TasksTab(
           currentUser: _currentUser!,
@@ -353,10 +363,16 @@ class _BottomNav extends StatelessWidget {
                 badge: chatBadge,
               ),
               _NavItem(
+                icon: Icons.notifications_active_rounded,
+                label: 'Notices',
+                selected: selected == 4,
+                onTap: () => onTab(4),
+              ),
+              _NavItem(
                 icon: Icons.logout_rounded,
                 label: 'Sign Out',
                 selected: false,
-                onTap: () => onTab(4),
+                onTap: () => onTab(5),
               ),
             ],
           ),
@@ -496,8 +512,7 @@ class _TasksTabState extends State<_TasksTab> {
                   completed: completed,
                   total: allTasks.length,
                   selected: _filter,
-                  onFilter: (f) =>
-                      setState(() => _filter = f),
+                  onFilter: (f) => setState(() => _filter = f),
                 ),
               ),
 
@@ -543,8 +558,18 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     final now = DateTime.now();
     final months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
 
     return SafeArea(
@@ -1009,7 +1034,9 @@ class _TaskCardState extends State<_TaskCard> {
   Widget build(BuildContext context) {
     final task = widget.task;
     final isCompleted = task.status == 'completed';
-    final urgency = isCompleted ? _C.green : _urgencyColor(task.createdAt, task.deadline);
+    final urgency = isCompleted
+        ? _C.green
+        : _urgencyColor(task.createdAt, task.deadline);
     final sd = _statusData(task.status);
 
     return GestureDetector(
@@ -1030,14 +1057,11 @@ class _TaskCardState extends State<_TaskCard> {
             color: Colors.white,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: _expanded
-                  ? _C.blue.withValues(alpha: 0.3)
-                  : _C.border,
+              color: _expanded ? _C.blue.withValues(alpha: 0.3) : _C.border,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black
-                    .withValues(alpha: _expanded ? 0.07 : 0.05),
+                color: Colors.black.withValues(alpha: _expanded ? 0.07 : 0.05),
                 blurRadius: _expanded ? 16 : 12,
                 offset: const Offset(0, 4),
               ),
@@ -1098,7 +1122,11 @@ class _TaskCardState extends State<_TaskCard> {
                         if (isCompleted)
                           Row(
                             children: [
-                              const Icon(Icons.check_circle_rounded, size: 18, color: _C.green),
+                              const Icon(
+                                Icons.check_circle_rounded,
+                                size: 18,
+                                color: _C.green,
+                              ),
                               const SizedBox(width: 6),
                               Text(
                                 'Completed',
@@ -1111,56 +1139,56 @@ class _TaskCardState extends State<_TaskCard> {
                             ],
                           )
                         else ...[
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(6),
-                          child: LinearProgressIndicator(
-                            value: task.mainProgress / 100,
-                            backgroundColor: _C.border,
-                            valueColor: AlwaysStoppedAnimation(urgency),
-                            minHeight: 6,
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: LinearProgressIndicator(
+                              value: task.mainProgress / 100,
+                              backgroundColor: _C.border,
+                              valueColor: AlwaysStoppedAnimation(urgency),
+                              minHeight: 6,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.people_outline_rounded,
-                              size: 13,
-                              color: _C.textTer,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${task.assignedVolunteers.length}/${task.maxVolunteers}',
-                              style: GoogleFonts.dmSans(
-                                color: _C.textSec,
-                                fontSize: 11,
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.people_outline_rounded,
+                                size: 13,
+                                color: _C.textTer,
                               ),
-                            ),
-                            const Spacer(),
-                            const Icon(
-                              Icons.schedule_outlined,
-                              size: 13,
-                              color: _C.textTer,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${task.deadline.day}/${task.deadline.month}/${task.deadline.year}',
-                              style: GoogleFonts.dmSans(
-                                color: _C.textSec,
-                                fontSize: 11,
+                              const SizedBox(width: 4),
+                              Text(
+                                '${task.assignedVolunteers.length}/${task.maxVolunteers}',
+                                style: GoogleFonts.dmSans(
+                                  color: _C.textSec,
+                                  fontSize: 11,
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              '${task.mainProgress.toStringAsFixed(0)}%',
-                              style: GoogleFonts.dmSans(
-                                color: urgency,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
+                              const Spacer(),
+                              const Icon(
+                                Icons.schedule_outlined,
+                                size: 13,
+                                color: _C.textTer,
                               ),
-                            ),
-                          ],
-                        ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${task.deadline.day}/${task.deadline.month}/${task.deadline.year}',
+                                style: GoogleFonts.dmSans(
+                                  color: _C.textSec,
+                                  fontSize: 11,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                '${task.mainProgress.toStringAsFixed(0)}%',
+                                style: GoogleFonts.dmSans(
+                                  color: urgency,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
                         ],
                         // Expanded details
                         AnimatedCrossFade(
@@ -1188,10 +1216,10 @@ class _TaskCardState extends State<_TaskCard> {
   }
 
   (String, Color) _statusData(String s) => switch (s) {
-        'active' => ('ACTIVE', _C.green),
-        'completed' => ('DONE', _C.textSec),
-        _ => ('INVITING', _C.blue),
-      };
+    'active' => ('ACTIVE', _C.green),
+    'completed' => ('DONE', _C.textSec),
+    _ => ('INVITING', _C.blue),
+  };
 }
 
 // ─── Expanded Task Details ────────────────────────────────────────────────────
@@ -1229,8 +1257,10 @@ class _ExpandedTaskDetails extends StatelessWidget {
 
         // ── Individual progress stream ──
         StreamBuilder<TaskAssignmentModel?>(
-          stream:
-              taskService.streamVolunteerAssignment(task.taskId, volunteerId),
+          stream: taskService.streamVolunteerAssignment(
+            task.taskId,
+            volunteerId,
+          ),
           builder: (context, assignSnap) {
             if (assignSnap.hasError) {
               return const Padding(
@@ -1247,7 +1277,9 @@ class _ExpandedTaskDetails extends StatelessWidget {
 
             return StreamBuilder<List<ProgressRequestModel>>(
               stream: taskService.streamVolunteerProgressRequests(
-                  task.taskId, volunteerId),
+                task.taskId,
+                volunteerId,
+              ),
               builder: (context, reqSnap) {
                 if (reqSnap.hasError) {
                   return const Padding(
@@ -1263,11 +1295,12 @@ class _ExpandedTaskDetails extends StatelessWidget {
                 final pendingReq = requests
                     .where((r) => r.status == 'pending')
                     .fold<ProgressRequestModel?>(
-                        null,
-                        (prev, r) => prev == null ||
-                                r.createdAt.isAfter(prev.createdAt)
-                            ? r
-                            : prev);
+                      null,
+                      (prev, r) =>
+                          prev == null || r.createdAt.isAfter(prev.createdAt)
+                          ? r
+                          : prev,
+                    );
                 final pendingProgress = pendingReq?.requestedProgress;
 
                 return Column(
@@ -1283,8 +1316,11 @@ class _ExpandedTaskDetails extends StatelessWidget {
                       const SizedBox(height: 6),
                       Row(
                         children: [
-                          const Icon(Icons.hourglass_top_rounded,
-                              size: 13, color: _C.textTer),
+                          const Icon(
+                            Icons.hourglass_top_rounded,
+                            size: 13,
+                            color: _C.textTer,
+                          ),
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
@@ -1335,8 +1371,7 @@ class _ProgressBarWithPending extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasPending =
-        pendingProgress != null && pendingProgress! > progress;
+    final hasPending = pendingProgress != null && pendingProgress! > progress;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1393,8 +1428,7 @@ class _ProgressBarWithPending extends StatelessWidget {
                 // Pending progress (grey)
                 if (hasPending)
                   FractionallySizedBox(
-                    widthFactor:
-                        (pendingProgress! / 100).clamp(0.0, 1.0),
+                    widthFactor: (pendingProgress! / 100).clamp(0.0, 1.0),
                     child: Container(
                       decoration: BoxDecoration(
                         color: const Color(0xFFBDBDBD),
@@ -1541,8 +1575,7 @@ class _UpdateProgressButton extends StatelessWidget {
                       value: requested,
                       min: currentProgress,
                       max: 100,
-                      divisions:
-                          (100 - currentProgress).toInt().clamp(1, 100),
+                      divisions: (100 - currentProgress).toInt().clamp(1, 100),
                       activeColor: _C.blue,
                       onChanged: (v) => setD(() => requested = v),
                     ),
@@ -1599,15 +1632,17 @@ class _UpdateProgressButton extends StatelessWidget {
                       return;
                     }
                     try {
-                      await _withNetworkTimeout(taskService.submitProgressRequest(
-                        taskId: task.taskId,
-                        taskTitle: task.title,
-                        volunteerId: volunteerId,
-                        adminId: task.adminId,
-                        currentProgress: currentProgress,
-                        requestedProgress: requested,
-                        note: noteCtrl.text.trim(),
-                      ));
+                      await _withNetworkTimeout(
+                        taskService.submitProgressRequest(
+                          taskId: task.taskId,
+                          taskTitle: task.title,
+                          volunteerId: volunteerId,
+                          adminId: task.adminId,
+                          currentProgress: currentProgress,
+                          requestedProgress: requested,
+                          note: noteCtrl.text.trim(),
+                        ),
+                      );
                       if (ctx.mounted) Navigator.pop(ctx);
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -1661,10 +1696,7 @@ class _UpdateProgressButton extends StatelessWidget {
 class _InvitesTab extends StatelessWidget {
   final UserModel currentUser;
   final TaskService taskService;
-  const _InvitesTab({
-    required this.currentUser,
-    required this.taskService,
-  });
+  const _InvitesTab({required this.currentUser, required this.taskService});
 
   @override
   Widget build(BuildContext context) {
@@ -1763,11 +1795,16 @@ class _InviteCardState extends State<_InviteCard> {
   Future<void> _accept() async {
     setState(() => _loading = true);
     try {
-      await _withNetworkTimeout(widget.taskService
-          .acceptInvite(widget.task.taskId, widget.volunteerId));
+      await _withNetworkTimeout(
+        widget.taskService.acceptInvite(widget.task.taskId, widget.volunteerId),
+      );
       if (mounted) {
-        _snack(context, 'Joined "${widget.task.title}"!', _C.green,
-            Icons.check_circle_rounded);
+        _snack(
+          context,
+          'Joined "${widget.task.title}"!',
+          _C.green,
+          Icons.check_circle_rounded,
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -1781,11 +1818,19 @@ class _InviteCardState extends State<_InviteCard> {
   Future<void> _decline() async {
     setState(() => _loading = true);
     try {
-      await _withNetworkTimeout(widget.taskService
-          .declineInvite(widget.task.taskId, widget.volunteerId));
+      await _withNetworkTimeout(
+        widget.taskService.declineInvite(
+          widget.task.taskId,
+          widget.volunteerId,
+        ),
+      );
       if (mounted) {
-        _snack(context, 'Declined invitation.', _C.textSec,
-            Icons.remove_circle_rounded);
+        _snack(
+          context,
+          'Declined invitation.',
+          _C.textSec,
+          Icons.remove_circle_rounded,
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -1870,8 +1915,11 @@ class _InviteCardState extends State<_InviteCard> {
                     const SizedBox(height: 10),
                     Row(
                       children: [
-                        const Icon(Icons.people_outline_rounded,
-                            size: 13, color: _C.textTer),
+                        const Icon(
+                          Icons.people_outline_rounded,
+                          size: 13,
+                          color: _C.textTer,
+                        ),
                         const SizedBox(width: 4),
                         Text(
                           '${task.assignedVolunteers.length}/${task.maxVolunteers}',
@@ -1881,15 +1929,18 @@ class _InviteCardState extends State<_InviteCard> {
                           ),
                         ),
                         const Spacer(),
-                        const Icon(Icons.schedule_outlined,
-                            size: 13, color: _C.textTer),
+                        const Icon(
+                          Icons.schedule_outlined,
+                          size: 13,
+                          color: _C.textTer,
+                        ),
                         const SizedBox(width: 4),
                         Text(
                           daysLeft < 0
                               ? 'Overdue'
                               : daysLeft == 0
-                                  ? 'Today'
-                                  : '${daysLeft}d left',
+                              ? 'Today'
+                              : '${daysLeft}d left',
                           style: GoogleFonts.dmSans(
                             color: urgency,
                             fontSize: 11,
@@ -1941,10 +1992,7 @@ class _InviteCardState extends State<_InviteCard> {
 class _NgoTasksTab extends StatefulWidget {
   final UserModel currentUser;
   final TaskService taskService;
-  const _NgoTasksTab({
-    required this.currentUser,
-    required this.taskService,
-  });
+  const _NgoTasksTab({required this.currentUser, required this.taskService});
 
   @override
   State<_NgoTasksTab> createState() => _NgoTasksTabState();
@@ -2023,12 +2071,13 @@ class _NgoTasksTabState extends State<_NgoTasksTab> {
                 );
               }
 
-              final active =
-                  allTasks.where((t) => t.status == 'active').length;
-              final inviting =
-                  allTasks.where((t) => t.status == 'inviting').length;
-              final completed =
-                  allTasks.where((t) => t.status == 'completed').length;
+              final active = allTasks.where((t) => t.status == 'active').length;
+              final inviting = allTasks
+                  .where((t) => t.status == 'inviting')
+                  .length;
+              final completed = allTasks
+                  .where((t) => t.status == 'completed')
+                  .length;
 
               final tasks = _filter == null
                   ? allTasks
@@ -2052,8 +2101,7 @@ class _NgoTasksTabState extends State<_NgoTasksTab> {
                             message: 'No ${_filter ?? ''} tasks.',
                           )
                         : ListView.builder(
-                            padding:
-                                const EdgeInsets.fromLTRB(16, 4, 16, 120),
+                            padding: const EdgeInsets.fromLTRB(16, 4, 16, 120),
                             physics: const BouncingScrollPhysics(
                               parent: AlwaysScrollableScrollPhysics(),
                             ),
@@ -2147,16 +2195,25 @@ class _NgoTaskCardState extends State<_NgoTaskCard> {
   Future<void> _join() async {
     setState(() => _loading = true);
     try {
-      await _withNetworkTimeout(widget.taskService
-          .joinTask(widget.task.taskId, widget.volunteerId));
+      await _withNetworkTimeout(
+        widget.taskService.joinTask(widget.task.taskId, widget.volunteerId),
+      );
       if (mounted) {
-        _snack(context, 'Joined "${widget.task.title}"!', _C.green,
-            Icons.check_circle_rounded);
+        _snack(
+          context,
+          'Joined "${widget.task.title}"!',
+          _C.green,
+          Icons.check_circle_rounded,
+        );
       }
     } catch (e) {
       if (mounted) {
-        _snack(context, e.toString().replaceAll('Exception: ', ''), _C.red,
-            Icons.error_rounded);
+        _snack(
+          context,
+          e.toString().replaceAll('Exception: ', ''),
+          _C.red,
+          Icons.error_rounded,
+        );
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -2166,11 +2223,16 @@ class _NgoTaskCardState extends State<_NgoTaskCard> {
   Future<void> _acceptInvite() async {
     setState(() => _loading = true);
     try {
-      await _withNetworkTimeout(widget.taskService
-          .acceptInvite(widget.task.taskId, widget.volunteerId));
+      await _withNetworkTimeout(
+        widget.taskService.acceptInvite(widget.task.taskId, widget.volunteerId),
+      );
       if (mounted) {
-        _snack(context, 'Accepted invite for "${widget.task.title}"!',
-            _C.green, Icons.check_circle_rounded);
+        _snack(
+          context,
+          'Accepted invite for "${widget.task.title}"!',
+          _C.green,
+          Icons.check_circle_rounded,
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -2184,11 +2246,16 @@ class _NgoTaskCardState extends State<_NgoTaskCard> {
   Future<void> _dismiss() async {
     setState(() => _loading = true);
     try {
-      await _withNetworkTimeout(widget.taskService
-          .dismissTask(widget.task.taskId, widget.volunteerId));
+      await _withNetworkTimeout(
+        widget.taskService.dismissTask(widget.task.taskId, widget.volunteerId),
+      );
       if (mounted) {
-        _snack(context, 'Task dismissed.', _C.textSec,
-            Icons.remove_circle_rounded);
+        _snack(
+          context,
+          'Task dismissed.',
+          _C.textSec,
+          Icons.remove_circle_rounded,
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -2202,11 +2269,19 @@ class _NgoTaskCardState extends State<_NgoTaskCard> {
   Future<void> _declineInvite() async {
     setState(() => _loading = true);
     try {
-      await _withNetworkTimeout(widget.taskService
-          .declineInvite(widget.task.taskId, widget.volunteerId));
+      await _withNetworkTimeout(
+        widget.taskService.declineInvite(
+          widget.task.taskId,
+          widget.volunteerId,
+        ),
+      );
       if (mounted) {
-        _snack(context, 'Declined invitation.', _C.textSec,
-            Icons.remove_circle_rounded);
+        _snack(
+          context,
+          'Declined invitation.',
+          _C.textSec,
+          Icons.remove_circle_rounded,
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -2221,7 +2296,9 @@ class _NgoTaskCardState extends State<_NgoTaskCard> {
   Widget build(BuildContext context) {
     final task = widget.task;
     final isCompleted = task.status == 'completed';
-    final urgency = isCompleted ? _C.green : _urgencyColor(task.createdAt, task.deadline);
+    final urgency = isCompleted
+        ? _C.green
+        : _urgencyColor(task.createdAt, task.deadline);
     final isAssigned = task.assignedVolunteers.contains(widget.volunteerId);
     final isPending = task.pendingInvites.contains(widget.volunteerId);
     final isDeclined = task.declinedBy.contains(widget.volunteerId);
@@ -2265,121 +2342,128 @@ class _NgoTaskCardState extends State<_NgoTaskCard> {
       child: Container(
         decoration: BoxDecoration(
           border: Border(
-            left: BorderSide(
-              color: isCompleted ? _C.green : urgency,
-              width: 4,
-            ),
+            left: BorderSide(color: isCompleted ? _C.green : urgency, width: 4),
           ),
         ),
         child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      task.title,
+                      style: GoogleFonts.dmSans(
+                        color: _C.textPri,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.2,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _Chip(label: chipLabel, color: chipColor),
+                ],
+              ),
+              const SizedBox(height: 5),
+              if (task.description.isNotEmpty)
+                Text(
+                  task.description,
+                  style: GoogleFonts.dmSans(
+                    color: _C.textSec,
+                    fontSize: 12,
+                    height: 1.4,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              const SizedBox(height: 12),
+              if (isCompleted)
+                Row(
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            task.title,
-                            style: GoogleFonts.dmSans(
-                              color: _C.textPri,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: -0.2,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        _Chip(label: chipLabel, color: chipColor),
-                      ],
+                    const Icon(
+                      Icons.check_circle_rounded,
+                      size: 18,
+                      color: _C.green,
                     ),
-                    const SizedBox(height: 5),
-                    if (task.description.isNotEmpty)
-                      Text(
-                        task.description,
-                        style: GoogleFonts.dmSans(
-                          color: _C.textSec,
-                          fontSize: 12,
-                          height: 1.4,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    const SizedBox(height: 12),
-                    if (isCompleted)
-                      Row(
-                        children: [
-                          const Icon(Icons.check_circle_rounded, size: 18, color: _C.green),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Completed',
-                            style: GoogleFonts.dmSans(
-                              color: _C.green,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      )
-                    else ...[
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
-                      child: LinearProgressIndicator(
-                        value: task.mainProgress / 100,
-                        backgroundColor: _C.border,
-                        valueColor: AlwaysStoppedAnimation(urgency),
-                        minHeight: 6,
+                    const SizedBox(width: 6),
+                    Text(
+                      'Completed',
+                      style: GoogleFonts.dmSans(
+                        color: _C.green,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const Icon(Icons.people_outline_rounded,
-                            size: 13, color: _C.textTer),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${task.assignedVolunteers.length}/${task.maxVolunteers}',
-                          style: GoogleFonts.dmSans(
-                            color: _C.textSec,
-                            fontSize: 11,
-                          ),
-                        ),
-                        const Spacer(),
-                        const Icon(Icons.schedule_outlined,
-                            size: 13, color: _C.textTer),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${task.deadline.day}/${task.deadline.month}/${task.deadline.year}',
-                          style: GoogleFonts.dmSans(
-                            color: _C.textSec,
-                            fontSize: 11,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Text(
-                          '${task.mainProgress.toStringAsFixed(0)}%',
-                          style: GoogleFonts.dmSans(
-                            color: urgency,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
+                  ],
+                )
+              else ...[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: LinearProgressIndicator(
+                    value: task.mainProgress / 100,
+                    backgroundColor: _C.border,
+                    valueColor: AlwaysStoppedAnimation(urgency),
+                    minHeight: 6,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.people_outline_rounded,
+                      size: 13,
+                      color: _C.textTer,
                     ),
-                    ],
-                    // ── Action buttons ──
-                    _buildActions(
-                      isAssigned: isAssigned,
-                      isPending: isPending,
-                      isDeclined: isDeclined,
-                      isCompleted: isCompleted,
-                      isFull: isFull,
+                    const SizedBox(width: 4),
+                    Text(
+                      '${task.assignedVolunteers.length}/${task.maxVolunteers}',
+                      style: GoogleFonts.dmSans(
+                        color: _C.textSec,
+                        fontSize: 11,
+                      ),
+                    ),
+                    const Spacer(),
+                    const Icon(
+                      Icons.schedule_outlined,
+                      size: 13,
+                      color: _C.textTer,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${task.deadline.day}/${task.deadline.month}/${task.deadline.year}',
+                      style: GoogleFonts.dmSans(
+                        color: _C.textSec,
+                        fontSize: 11,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      '${task.mainProgress.toStringAsFixed(0)}%',
+                      style: GoogleFonts.dmSans(
+                        color: urgency,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ],
                 ),
+              ],
+              // ── Action buttons ──
+              _buildActions(
+                isAssigned: isAssigned,
+                isPending: isPending,
+                isDeclined: isDeclined,
+                isCompleted: isCompleted,
+                isFull: isFull,
               ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -2405,8 +2489,7 @@ class _NgoTaskCardState extends State<_NgoTaskCard> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.check_circle_rounded,
-                  size: 16, color: _C.green),
+              const Icon(Icons.check_circle_rounded, size: 16, color: _C.green),
               const SizedBox(width: 6),
               Text(
                 'You\'re assigned to this task',
@@ -2547,21 +2630,21 @@ class _Chip extends StatelessWidget {
   const _Chip({required this.label, required this.color});
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(
-          label,
-          style: GoogleFonts.dmSans(
-            color: color,
-            fontSize: 10,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.5,
-          ),
-        ),
-      );
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.1),
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: Text(
+      label,
+      style: GoogleFonts.dmSans(
+        color: color,
+        fontSize: 10,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.5,
+      ),
+    ),
+  );
 }
 
 class _OutlineActionBtn extends StatefulWidget {
@@ -2583,44 +2666,44 @@ class _OutlineActionBtnState extends State<_OutlineActionBtn> {
   bool _p = false;
   @override
   Widget build(BuildContext context) => GestureDetector(
-        onTapDown: (_) => setState(() => _p = true),
-        onTapUp: (_) {
-          setState(() => _p = false);
-          widget.onTap();
-        },
-        onTapCancel: () => setState(() => _p = false),
-        child: AnimatedScale(
-          scale: _p ? 0.95 : 1.0,
-          duration: const Duration(milliseconds: 90),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: widget.color.withValues(alpha: 0.4)),
-              color: widget.color.withValues(alpha: 0.06),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(widget.icon, color: widget.color, size: 15),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Text(
-                    widget.label,
-                    style: GoogleFonts.dmSans(
-                      color: widget.color,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
+    onTapDown: (_) => setState(() => _p = true),
+    onTapUp: (_) {
+      setState(() => _p = false);
+      widget.onTap();
+    },
+    onTapCancel: () => setState(() => _p = false),
+    child: AnimatedScale(
+      scale: _p ? 0.95 : 1.0,
+      duration: const Duration(milliseconds: 90),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: widget.color.withValues(alpha: 0.4)),
+          color: widget.color.withValues(alpha: 0.06),
         ),
-      );
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(widget.icon, color: widget.color, size: 15),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                widget.label,
+                style: GoogleFonts.dmSans(
+                  color: widget.color,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 class _FilledActionBtn extends StatefulWidget {
@@ -2642,88 +2725,85 @@ class _FilledActionBtnState extends State<_FilledActionBtn> {
   bool _p = false;
   @override
   Widget build(BuildContext context) => GestureDetector(
-        onTapDown: (_) => setState(() => _p = true),
-        onTapUp: (_) {
-          setState(() => _p = false);
-          widget.onTap();
-        },
-        onTapCancel: () => setState(() => _p = false),
-        child: AnimatedScale(
-          scale: _p ? 0.95 : 1.0,
-          duration: const Duration(milliseconds: 90),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              color: widget.color,
-              boxShadow: [
-                BoxShadow(
-                  color: widget.color.withValues(alpha: 0.3),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+    onTapDown: (_) => setState(() => _p = true),
+    onTapUp: (_) {
+      setState(() => _p = false);
+      widget.onTap();
+    },
+    onTapCancel: () => setState(() => _p = false),
+    child: AnimatedScale(
+      scale: _p ? 0.95 : 1.0,
+      duration: const Duration(milliseconds: 90),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          color: widget.color,
+          boxShadow: [
+            BoxShadow(
+              color: widget.color.withValues(alpha: 0.3),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(widget.icon, color: Colors.white, size: 15),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Text(
-                    widget.label,
-                    style: GoogleFonts.dmSans(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          ],
         ),
-      );
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(widget.icon, color: Colors.white, size: 15),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                widget.label,
+                style: GoogleFonts.dmSans(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 class _EmptyState extends StatelessWidget {
   final IconData icon;
   final String message;
-  const _EmptyState({
-    required this.icon,
-    required this.message,
-  });
+  const _EmptyState({required this.icon, required this.message});
   @override
   Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(40),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: _C.textTer.withValues(alpha: 0.08),
-                ),
-                child: Icon(icon, size: 40, color: _C.textTer),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.dmSans(
-                  color: _C.textTer,
-                  fontSize: 14,
-                  height: 1.6,
-                ),
-              ),
-            ],
+    child: Padding(
+      padding: const EdgeInsets.all(40),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: _C.textTer.withValues(alpha: 0.08),
+            ),
+            child: Icon(icon, size: 40, color: _C.textTer),
           ),
-        ),
-      );
+          const SizedBox(height: 16),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.dmSans(
+              color: _C.textTer,
+              fontSize: 14,
+              height: 1.6,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _PulseLoader extends StatelessWidget {
@@ -2747,101 +2827,101 @@ class _LightDialog extends StatelessWidget {
   });
   @override
   Widget build(BuildContext context) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.12),
-                blurRadius: 30,
-                offset: const Offset(0, 10),
-              ),
-            ],
+    backgroundColor: Colors.transparent,
+    child: Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 30,
+            offset: const Offset(0, 10),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: GoogleFonts.dmSans(
+              color: _C.textPri,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            body,
+            style: GoogleFonts.dmSans(
+              color: _C.textSec,
+              fontSize: 14,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Row(
             children: [
-              Text(
-                title,
-                style: GoogleFonts.dmSans(
-                  color: _C.textPri,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                body,
-                style: GoogleFonts.dmSans(
-                  color: _C.textSec,
-                  fontSize: 14,
-                  height: 1.5,
-                ),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: onCancel,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: _C.border),
-                          color: _C.divider,
-                        ),
-                        child: Center(
-                          child: Text(
-                            'Cancel',
-                            style: GoogleFonts.dmSans(
-                              color: _C.textSec,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
+              Expanded(
+                child: GestureDetector(
+                  onTap: onCancel,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: _C.border),
+                      color: _C.divider,
+                    ),
+                    child: Center(
+                      child: Text(
+                        'Cancel',
+                        style: GoogleFonts.dmSans(
+                          color: _C.textSec,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: onConfirm,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          color: confirmColor,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: confirmColor.withValues(alpha: 0.3),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: GestureDetector(
+                  onTap: onConfirm,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: confirmColor,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: confirmColor.withValues(alpha: 0.3),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
                         ),
-                        child: Center(
-                          child: Text(
-                            confirmLabel,
-                            style: GoogleFonts.dmSans(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
+                      ],
+                    ),
+                    child: Center(
+                      child: Text(
+                        confirmLabel,
+                        style: GoogleFonts.dmSans(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ),
                   ),
-                ],
+                ),
               ),
             ],
           ),
-        ),
-      );
+        ],
+      ),
+    ),
+  );
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
