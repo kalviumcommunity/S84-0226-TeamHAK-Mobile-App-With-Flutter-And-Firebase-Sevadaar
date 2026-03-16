@@ -446,7 +446,7 @@ class _TasksTab extends StatefulWidget {
 }
 
 class _TasksTabState extends State<_TasksTab> {
-  String? _filter; // null = show all, 'active', 'inviting', 'completed'
+  String? _filter = 'ongoing'; // null = show all, 'ongoing' = active + inviting
 
   @override
   Widget build(BuildContext context) {
@@ -483,13 +483,12 @@ class _TasksTabState extends State<_TasksTab> {
         final allTasks = (snap.data ?? [])
           ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-        final active = allTasks.where((t) => t.status == 'active').length;
-        final inviting = allTasks.where((t) => t.status == 'inviting').length;
-        final completed = allTasks.where((t) => t.status == 'completed').length;
+        final ongoingCount = allTasks.where((t) => t.status != 'completed').length;
+        final totalCount = allTasks.length;
 
         final tasks = _filter == null
             ? allTasks
-            : allTasks.where((t) => t.status == _filter).toList();
+            : allTasks.where((t) => t.status != 'completed').toList();
 
         return CustomScrollView(
           physics: const BouncingScrollPhysics(
@@ -508,13 +507,12 @@ class _TasksTabState extends State<_TasksTab> {
             if (allTasks.isNotEmpty)
               SliverToBoxAdapter(
                 child: _StatBar(
-                  active: active,
-                  inviting: inviting,
-                  completed: completed,
+                  ongoing: ongoingCount,
+                  total: totalCount,
                   selected: _filter,
                   onFilter: (f) {
                     setState(() {
-                      _filter = _filter == f ? null : f;
+                      _filter = f;
                     });
                   },
                 ),
@@ -902,7 +900,7 @@ class _Header extends StatelessWidget {
                 ),
                 const SizedBox(width: 10),
                 Text(
-                  'Your Tasks',
+                  'NGO Tasks',
                   style: GoogleFonts.dmSans(
                     color: _C.textPri,
                     fontSize: 16,
@@ -921,13 +919,12 @@ class _Header extends StatelessWidget {
 
 // ─── Stat Bar ─────────────────────────────────────────────────────────────────
 class _StatBar extends StatelessWidget {
-  final int active, inviting, completed;
+  final int ongoing, total;
   final String? selected;
-  final ValueChanged<String> onFilter;
+  final ValueChanged<String?> onFilter;
   const _StatBar({
-    required this.active,
-    required this.inviting,
-    required this.completed,
+    required this.ongoing,
+    required this.total,
     required this.selected,
     required this.onFilter,
   });
@@ -939,30 +936,21 @@ class _StatBar extends StatelessWidget {
       child: Row(
         children: [
           _StatPill(
-            label: 'Active',
-            value: active,
+            label: 'Ongoing',
+            value: ongoing,
             color: _C.green,
             bgColor: _C.greenLight,
-            isSelected: selected == 'active',
-            onTap: () => onFilter('active'),
+            isSelected: selected == 'ongoing',
+            onTap: () => onFilter('ongoing'),
           ),
           const SizedBox(width: 8),
           _StatPill(
-            label: 'Inviting',
-            value: inviting,
+            label: 'Total',
+            value: total,
             color: _C.blue,
             bgColor: _C.blueLight,
-            isSelected: selected == 'inviting',
-            onTap: () => onFilter('inviting'),
-          ),
-          const SizedBox(width: 8),
-          _StatPill(
-            label: 'Done',
-            value: completed,
-            color: _C.textSec,
-            bgColor: _C.divider,
-            isSelected: selected == 'completed',
-            onTap: () => onFilter('completed'),
+            isSelected: selected == null,
+            onTap: () => onFilter(null),
           ),
         ],
       ),
