@@ -446,7 +446,7 @@ class _TasksTab extends StatefulWidget {
 }
 
 class _TasksTabState extends State<_TasksTab> {
-  String? _filter; // null = all, 'active', 'completed'
+  String? _filter = 'active'; // null = all, 'active', 'completed'
 
   @override
   Widget build(BuildContext context) {
@@ -497,7 +497,7 @@ class _TasksTabState extends State<_TasksTab> {
                   total: allTasks.length,
                   selected: _filter,
                   onFilter: (f) =>
-                      setState(() => _filter = _filter == f ? null : f),
+                      setState(() => _filter = f),
                 ),
               ),
 
@@ -890,7 +890,7 @@ class _Header extends StatelessWidget {
 class _StatBar extends StatelessWidget {
   final int active, completed, total;
   final String? selected;
-  final ValueChanged<String> onFilter;
+  final ValueChanged<String?> onFilter;
   const _StatBar({
     required this.active,
     required this.completed,
@@ -906,7 +906,7 @@ class _StatBar extends StatelessWidget {
       child: Row(
         children: [
           _StatPill(
-            label: 'Active',
+            label: 'Ongoing',
             value: active,
             color: _C.green,
             bgColor: _C.greenLight,
@@ -915,21 +915,12 @@ class _StatBar extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           _StatPill(
-            label: 'Done',
-            value: completed,
-            color: _C.textSec,
-            bgColor: _C.divider,
-            isSelected: selected == 'completed',
-            onTap: () => onFilter('completed'),
-          ),
-          const SizedBox(width: 8),
-          _StatPill(
             label: 'Total',
             value: total,
             color: _C.blue,
             bgColor: _C.blueLight,
-            isSelected: false,
-            onTap: () {},
+            isSelected: selected == null,
+            onTap: () => onFilter(null),
           ),
         ],
       ),
