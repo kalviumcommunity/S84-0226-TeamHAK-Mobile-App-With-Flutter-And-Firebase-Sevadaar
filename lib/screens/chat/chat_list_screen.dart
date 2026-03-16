@@ -171,29 +171,65 @@ class ChatListScreen extends ConsumerWidget {
               fontWeight: unreadCount > 0 ? FontWeight.w600 : FontWeight.normal,
             ),
           ),
-          trailing: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.end,
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              if (chat.isLocked)
-                const Icon(Icons.check_circle, color: Colors.green, size: 16),
-              if (unreadCount > 0)
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  margin: const EdgeInsets.only(top: 4),
-                  decoration: const BoxDecoration(
-                    color: _C.blue,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Text(
-                    unreadCount.toString(),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  if (chat.isLocked)
+                    const Icon(Icons.check_circle, color: Colors.green, size: 16),
+                  if (unreadCount > 0)
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      margin: const EdgeInsets.only(top: 4),
+                      decoration: const BoxDecoration(
+                        color: _C.blue,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        unreadCount.toString(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
+                ],
+              ),
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert, color: _C.textSec),
+                onSelected: (value) async {
+                  final chatService = ref.read(chatServiceProvider);
+                  if (value == 'archive') {
+                    await chatService.archiveChat(chat.chatId, currentUser.uid);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('$title archived')),
+                      );
+                    }
+                  } else if (value == 'delete') {
+                    await chatService.deleteChat(chat.chatId, currentUser.uid);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('$title deleted')),
+                      );
+                    }
+                  }
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'archive',
+                    child: Text('Archive'),
                   ),
-                ),
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Text('Delete', style: TextStyle(color: _C.red)),
+                  ),
+                ],
+              ),
             ],
           ),
           onTap: () async {

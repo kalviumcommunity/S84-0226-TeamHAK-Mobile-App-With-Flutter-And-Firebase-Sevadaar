@@ -130,6 +130,37 @@ class ArchivedChatsScreen extends ConsumerWidget {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(color: _C.textSec),
           ),
+          trailing: PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, color: _C.textSec),
+            onSelected: (value) async {
+              final chatService = ref.read(chatServiceProvider);
+              if (value == 'unarchive') {
+                await chatService.unarchiveChat(chat.chatId, currentUser.uid);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('$title unarchived')),
+                  );
+                }
+              } else if (value == 'delete') {
+                await chatService.deleteChat(chat.chatId, currentUser.uid);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('$title deleted')),
+                  );
+                }
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'unarchive',
+                child: Text('Unarchive'),
+              ),
+              const PopupMenuItem(
+                value: 'delete',
+                child: Text('Delete', style: TextStyle(color: Colors.red)),
+              ),
+            ],
+          ),
           onTap: () async {
             if (context.mounted) {
               Navigator.push(
