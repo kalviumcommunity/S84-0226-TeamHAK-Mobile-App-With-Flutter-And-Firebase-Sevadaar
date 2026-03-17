@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/user_model.dart';
+import '../../models/chat_model.dart';
 import '../../services/user_service.dart';
+import '../../state/chat_provider.dart';
+import '../chat/chat_room_screen.dart';
 
 /// Allows the Super Admin to view all NGO members and
 /// toggle any volunteer ↔ admin for their NGO.
-class ManageAdminsScreen extends StatelessWidget {
+class ManageAdminsScreen extends ConsumerWidget {
   final String ngoId;
   final String superAdminUid;
 
@@ -16,7 +20,7 @@ class ManageAdminsScreen extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final userService = UserService();
 
     return Scaffold(
@@ -102,6 +106,7 @@ class ManageAdminsScreen extends StatelessWidget {
               member: sorted[i],
               superAdminUid: superAdminUid,
               userService: userService,
+              ngoId: ngoId,
             ),
           );
         },
@@ -111,22 +116,24 @@ class ManageAdminsScreen extends StatelessWidget {
 }
 
 // ── Member Card ───────────────────────────────────────────────────
-class _MemberCard extends StatefulWidget {
+class _MemberCard extends ConsumerStatefulWidget {
   final UserModel member;
   final String superAdminUid;
   final UserService userService;
+  final String ngoId;
 
   const _MemberCard({
     required this.member,
     required this.superAdminUid,
     required this.userService,
+    required this.ngoId,
   });
 
   @override
-  State<_MemberCard> createState() => _MemberCardState();
+  ConsumerState<_MemberCard> createState() => _MemberCardState();
 }
 
-class _MemberCardState extends State<_MemberCard> {
+class _MemberCardState extends ConsumerState<_MemberCard> {
   bool _processing = false;
 
   bool get _isSuperAdmin => widget.member.role == 'super_admin';
@@ -198,6 +205,45 @@ class _MemberCardState extends State<_MemberCard> {
     } finally {
       if (mounted) setState(() => _processing = false);
     }
+  }
+
+  Future<void> _chatWithUser() async {
+    final chatService = ref.read(chatServiceProvider);
+    final chatId = await chatService.createOrGetDirectChat(
+      currentUserUid: widget.superAdminUid,
+      targetUserUid: widget.member.uid,
+      ngoId: widget.ngoId,
+    );
+
+    final chat = ChatModel(
+      chatId: chatId,
+      type: 'direct',
+      title: widget.member.name,
+      ngoId: widget.ngoId,
+      participants: [widget.superAdminUid, widget.member.uid],
+      lastMessage: '',
+      lastMessageTime: DateTime.now(),
+      isArchived: false,
+      isLocked: false,
+      unreadCounts: {},
+      archivedBy: [],
+      deletedBy: [],
+    );
+
+    if (!mounted) return;
+
+    final superAdminUser = await widget.userService.getUserById(widget.superAdminUid);
+    if (superAdminUser == null || !mounted) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChatRoomScreen(
+          chat: chat,
+          currentUser: superAdminUser,
+        ),
+      ),
+    );
   }
 
   @override
@@ -285,6 +331,29 @@ class _MemberCardState extends State<_MemberCard> {
                 isAdmin: _isAdmin,
                 onTap: _toggleRole,
               ),
+
+            if (!_isCurrentUser) ...[
+              const SizedBox(width: 8),
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert, color: Colors.grey),
+                onSelected: (val) {
+                  if (val == 'chat') _chatWithUser();
+                },
+                itemBuilder: (ctx) => [
+                  PopupMenuItem(
+                    value: 'chat',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.chat_bubble_outline, size: 18),
+                        const SizedBox(width: 10),
+                        Text('Chat with ${widget.member.name}',
+                            style: GoogleFonts.poppins(fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),

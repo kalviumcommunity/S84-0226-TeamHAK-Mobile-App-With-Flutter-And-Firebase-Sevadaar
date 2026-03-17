@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/user_model.dart';
 import '../../models/chat_model.dart';
 import '../../state/chat_provider.dart';
-import '../../services/task_service.dart';
+import '../../state/auth_provider.dart';
 import 'chat_room_screen.dart';
 import 'archived_chats_screen.dart';
 
@@ -17,14 +18,67 @@ class _C {
   static const orange = Color(0xFFF97316);
 }
 
-class ChatListScreen extends ConsumerWidget {
+class ChatListScreen extends ConsumerStatefulWidget {
   final UserModel currentUser;
 
   const ChatListScreen({super.key, required this.currentUser});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    if (currentUser.ngoId == null || currentUser.ngoId!.isEmpty) {
+  ConsumerState<ChatListScreen> createState() => _ChatListScreenState();
+}
+
+class _ChatListScreenState extends ConsumerState<ChatListScreen> {
+  String? _activeNgoId;
+  bool _isLoadingNgo = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolveNgoId();
+  }
+
+  Future<void> _resolveNgoId() async {
+    if (widget.currentUser.ngoId != null && widget.currentUser.ngoId!.isNotEmpty) {
+      setState(() {
+        _activeNgoId = widget.currentUser.ngoId;
+        _isLoadingNgo = false;
+      });
+      return;
+    }
+
+    if (widget.currentUser.role == 'super_admin') {
+      try {
+        final snap = await FirebaseFirestore.instance
+            .collection('ngos')
+            .where('superAdminId', isEqualTo: widget.currentUser.uid)
+            .limit(1)
+            .get();
+        if (snap.docs.isNotEmpty) {
+          setState(() {
+            _activeNgoId = snap.docs.first.id;
+            _isLoadingNgo = false;
+          });
+          return;
+        }
+      } catch (e) {
+        // Ignore and let it fall through to empty state
+      }
+    }
+
+    setState(() {
+      _isLoadingNgo = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoadingNgo) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_activeNgoId == null || _activeNgoId!.isEmpty) {
       return const Scaffold(
         body: Center(child: Text('You are not associated with an NGO yet.')),
       );
@@ -32,7 +86,7 @@ class ChatListScreen extends ConsumerWidget {
 
     final chatsAsync = ref.watch(
       userChatsProvider(
-        ChatParams(uid: currentUser.uid, ngoId: currentUser.ngoId!),
+        ChatParams(uid: widget.currentUser.uid, ngoId: _activeNgoId!),
       ),
     );
 
@@ -56,7 +110,7 @@ class ChatListScreen extends ConsumerWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => ArchivedChatsScreen(currentUser: currentUser),
+                  builder: (_) => ArchivedChatsScreen(currentUser: widget.currentUser),
                 ),
               );
             },
@@ -71,7 +125,7 @@ class ChatListScreen extends ConsumerWidget {
       body: chatsAsync.when(
         data: (allChats) {
           final activeChats = allChats
-              .where((c) => !c.archivedBy.contains(currentUser.uid))
+              .where((c) => !c.archivedBy.contains(widget.currentUser.uid))
               .toList();
 
           if (activeChats.isEmpty) {
@@ -88,7 +142,7 @@ class ChatListScreen extends ConsumerWidget {
             itemCount: activeChats.length,
             itemBuilder: (context, index) {
               final chat = activeChats[index];
-              return _ChatTile(chat: chat, currentUser: currentUser);
+              return _ChatTile(chat: chat, currentUser: widget.currentUser);
             },
           );
         },
@@ -106,7 +160,7 @@ class ChatListScreen extends ConsumerWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (_) {
-        final taskService = TaskService();
+        final userService = ref.read(userServiceProvider);
         return SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -124,14 +178,14 @@ class ChatListScreen extends ConsumerWidget {
               ),
               Expanded(
                 child: StreamBuilder<List<UserModel>>(
-                  stream: taskService.streamNgoVolunteers(currentUser.ngoId!),
+                  stream: userService.streamNgoMembers(_activeNgoId!),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const Center(child: CircularProgressIndicator());
                     }
                     final users =
                         snapshot.data
-                            ?.where((u) => u.uid != currentUser.uid)
+                            ?.where((u) => u.uid != widget.currentUser.uid)
                             .toList() ??
                         [];
                     if (users.isEmpty) {
@@ -157,17 +211,17 @@ class ChatListScreen extends ConsumerWidget {
                             Navigator.pop(context);
                             final service = ref.read(chatServiceProvider);
                             final chatId = await service.createOrGetDirectChat(
-                              currentUserUid: currentUser.uid,
+                              currentUserUid: widget.currentUser.uid,
                               targetUserUid: user.uid,
-                              ngoId: currentUser.ngoId!,
+                              ngoId: _activeNgoId!,
                             );
 
                             final tempChat = ChatModel(
                               chatId: chatId,
                               type: 'direct',
                               title: user.name,
-                              ngoId: currentUser.ngoId!,
-                              participants: [currentUser.uid, user.uid],
+                              ngoId: _activeNgoId!,
+                              participants: [widget.currentUser.uid, user.uid],
                               lastMessage: '',
                               lastMessageTime: DateTime.now(),
                               isArchived: false,
@@ -182,7 +236,7 @@ class ChatListScreen extends ConsumerWidget {
                                 MaterialPageRoute(
                                   builder: (_) => ChatRoomScreen(
                                     chat: tempChat,
-                                    currentUser: currentUser,
+                                    currentUser: widget.currentUser,
                                   ),
                                 ),
                               );

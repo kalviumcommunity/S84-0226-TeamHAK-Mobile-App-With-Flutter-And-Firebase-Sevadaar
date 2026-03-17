@@ -129,6 +129,7 @@ class ChatService {
       'lastMessage': text,
       'lastMessageTime': FieldValue.serverTimestamp(),
       'archivedBy': [],
+      'deletedBy': [],
       ...unreadUpdates,
     });
 
@@ -137,9 +138,9 @@ class ChatService {
     participants.remove(sender.uid);
     if (participants.isNotEmpty) {
       final chatTitle = chatData['type'] == 'group'
-          ? chatData['title']
+          ? (chatData['title'] ?? 'Group Chat')
           : sender.name;
-      final taskId = chatData['taskId'];
+      final String taskId = chatData['taskId'] ?? '';
       await _notifService.sendToMultiple(
         recipientUids: participants,
         title: 'New message from $chatTitle',
@@ -187,7 +188,6 @@ class ChatService {
   Stream<List<ChatModel>> streamChatsForUser(String uid, String ngoId) {
     return _db
         .collection('chats')
-        .where('ngoId', isEqualTo: ngoId)
         .where('participants', arrayContains: uid)
         .orderBy('lastMessageTime', descending: true)
         .snapshots()

@@ -5,6 +5,7 @@ import '../../services/auth_service.dart';
 import '../../services/ngo_service.dart';
 import '../../services/user_service.dart';
 import '../auth/login_screen.dart';
+import '../chat/chat_list_screen.dart';
 import 'manage_admins_screen.dart';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
@@ -642,7 +643,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard>
                     const SizedBox(height: 14),
 
                     // ── Action Cards ───────────────────────────────────
-                    ...List.generate(2, (i) {
+                    ...List.generate(3, (i) {
                       final items = [
                         _ActionItem(
                           title: 'Your NGOs',
@@ -661,6 +662,28 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard>
                           accentBg: _AppColors.indigoLight,
                           onTap: _showCreateNgoDialog,
                           tag: 'New',
+                        ),
+                        _ActionItem(
+                          title: 'Chats',
+                          subtitle: 'Message members and admins',
+                          icon: Icons.chat_bubble_rounded,
+                          accent: _AppColors.indigo,
+                          accentBg: _AppColors.indigoLight,
+                          onTap: () async {
+                            final userUid = _authService.currentUser?.uid;
+                            if (userUid == null) return;
+                            final user = await _userService.getUserById(userUid);
+                            if (user != null && context.mounted) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      ChatListScreen(currentUser: user),
+                                ),
+                              );
+                            }
+                          },
+                          tag: 'Msg',
                         ),
                       ];
                       return FadeTransition(
