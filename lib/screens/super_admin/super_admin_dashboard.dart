@@ -17,8 +17,6 @@ class _AppColors {
   static const indigoLight = Color(0xFFEEF2FF);
   static const green = Color(0xFF10B981);
   static const greenLight = Color(0xFFECFDF5);
-  static const amber = Color(0xFFF59E0B);
-  static const amberLight = Color(0xFFFFFBEB);
   static const red = Color(0xFFEF4444);
   static const redLight = Color(0xFFFEF2F2);
   static const textPrimary = Color(0xFF0A0F1E);
@@ -353,15 +351,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard>
     );
   }
 
-  // ─── My NGOs Sheet ───────────────────────────────────────────────────────
-  Future<void> _openManageAdmins() async {
-    try {
-      _showMyNgosSheet();
-    } catch (e) {
-      if (!mounted) return;
-      _snack('Error: $e', bg: _AppColors.red, icon: Icons.error_rounded);
-    }
-  }
+ 
 
   Future<void> _showMyNgosSheet() async {
     final uid = _authService.currentUser?.uid ?? '';
@@ -652,7 +642,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard>
                     const SizedBox(height: 14),
 
                     // ── Action Cards ───────────────────────────────────
-                    ...List.generate(3, (i) {
+                    ...List.generate(2, (i) {
                       final items = [
                         _ActionItem(
                           title: 'Your NGOs',
@@ -671,15 +661,6 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard>
                           accentBg: _AppColors.indigoLight,
                           onTap: _showCreateNgoDialog,
                           tag: 'New',
-                        ),
-                        _ActionItem(
-                          title: 'Manage Users',
-                          subtitle: 'View all member accounts',
-                          icon: Icons.manage_accounts_rounded,
-                          accent: _AppColors.amber,
-                          accentBg: _AppColors.amberLight,
-                          onTap: _openManageAdmins,
-                          tag: 'Admin',
                         ),
                       ];
                       return FadeTransition(
