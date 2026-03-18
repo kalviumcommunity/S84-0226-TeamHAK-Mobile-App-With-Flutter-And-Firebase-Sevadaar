@@ -504,29 +504,39 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard>
                           Clipboard.setData(
                             ClipboardData(text: ngos[i].joinCode),
                           );
-                          ScaffoldMessenger.of(ctx).showSnackBar(
-                            SnackBar(
-                              content: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.copy_rounded,
-                                    color: Colors.white,
-                                    size: 15,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Code ${ngos[i].joinCode} copied!',
-                                    style: GoogleFonts.dmSans(),
-                                  ),
-                                ],
+                          // Close the sheet first, then show the snackbar so it
+                          // is never obscured by the modal overlay.
+                          Navigator.pop(ctx);
+                          Future.microtask(
+                            () => ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.copy_rounded,
+                                      color: Colors.white,
+                                      size: 15,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Code ${ngos[i].joinCode} copied!',
+                                      style: GoogleFonts.dmSans(),
+                                    ),
+                                  ],
+                                ),
+                                backgroundColor: _AppColors.green,
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                margin: const EdgeInsets.fromLTRB(
+                                  16,
+                                  0,
+                                  16,
+                                  16,
+                                ),
+                                duration: const Duration(seconds: 2),
                               ),
-                              backgroundColor: _AppColors.green,
-                              behavior: SnackBarBehavior.floating,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                              duration: const Duration(seconds: 2),
                             ),
                           );
                         },
