@@ -14,7 +14,9 @@ class NgoService {
     try {
       return _dbInstance ??= FirebaseFirestore.instance;
     } catch (e) {
-      throw Exception('Firebase not initialized. Feature unavailable on this platform.');
+      throw Exception(
+        'Firebase not initialized. Feature unavailable on this platform.',
+      );
     }
   }
 
@@ -117,16 +119,20 @@ class NgoService {
   }
 
   /// Sends email via EmailJS REST API.
-  /// Configure EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, EMAILJS_PUBLIC_KEY
-  /// in your .env file.
   Future<void> _sendEmailNotification(NgoApplicationModel app) async {
     try {
-      const serviceId = String.fromEnvironment('EMAILJS_SERVICE_ID',
-          defaultValue: '');
-      const templateId = String.fromEnvironment('EMAILJS_TEMPLATE_ID',
-          defaultValue: '');
-      const publicKey = String.fromEnvironment('EMAILJS_PUBLIC_KEY',
-          defaultValue: '');
+      const serviceId = String.fromEnvironment(
+        'EMAILJS_SERVICE_ID',
+        defaultValue: '',
+      );
+      const templateId = String.fromEnvironment(
+        'EMAILJS_TEMPLATE_ID',
+        defaultValue: '',
+      );
+      const publicKey = String.fromEnvironment(
+        'EMAILJS_PUBLIC_KEY',
+        defaultValue: '',
+      );
 
       if (serviceId.isEmpty || templateId.isEmpty || publicKey.isEmpty) return;
 
@@ -159,19 +165,18 @@ class NgoService {
         .collection('ngos')
         .where('superAdminId', isEqualTo: superAdminId)
         .snapshots()
-        .map((snap) =>
-            snap.docs.map((d) => NgoModel.fromMap(d.data(), d.id)).toList());
+        .map(
+          (snap) =>
+              snap.docs.map((d) => NgoModel.fromMap(d.data(), d.id)).toList(),
+        );
   }
 
   // ── Validate NGO Code ───────────────────────────────────────────
-  /// Looks up an NGO by join code (alias for validateJoinCode).
   Future<NgoModel?> validateNgoCode(String code) async {
     return validateJoinCode(code);
   }
 
   // ── Create NGO from Developer Admin Approval ────────────────────
-  /// Creates an NGO when a developer admin approves an NGO request.
-  /// Uses a simplified model with just name + registration number.
   Future<NgoModel> createNgoFromRequest({
     required String name,
     required String registrationNumber,
@@ -200,5 +205,67 @@ class NgoService {
     final doc = await _db.collection('ngos').doc(ngoId).get();
     if (!doc.exists) return null;
     return NgoModel.fromMap(doc.data()!, doc.id);
+  }
+
+  // ── Delete NGO ─────────────────────────────────────────────────
+  /// Permanently deletes an NGO and ALL related data:
+  ///   • Resets every member's ngoId → '' and role → 'volunteer'
+  ///   • Deletes all tasks in the NGO
+  ///   • Deletes all chats and their nested messages
+  ///   • Deletes all announcements
+  ///   • Deletes the NGO document itself
+  Future<void> deleteNgo(String ngoId) async {
+    final ngoRef = _db.collection('ngos').doc(ngoId);
+
+    // 1. Reset all members belonging to this NGO
+    final membersSnap = await _db
+        .collection('users')
+        .where('ngoId', isEqualTo: ngoId)
+        .get();
+
+    if (membersSnap.docs.isNotEmpty) {
+      // Firestore batch limit is 500 — chunk if needed
+      const chunkSize = 400;
+      for (var i = 0; i < membersSnap.docs.length; i += chunkSize) {
+        final chunk = membersSnap.docs.skip(i).take(chunkSize);
+        final batch = _db.batch();
+        for (final doc in chunk) {
+          batch.update(doc.reference, {'ngoId': '', 'role': 'volunteer'});
+        }
+        await batch.commit();
+      }
+    }
+
+    // 2. Delete tasks subcollection
+    await _deleteSubcollection(ngoRef.collection('tasks'));
+
+    // 3. Delete chats + their nested messages subcollection
+    final chatsSnap = await ngoRef.collection('chats').get();
+    for (final chatDoc in chatsSnap.docs) {
+      await _deleteSubcollection(chatDoc.reference.collection('messages'));
+      await chatDoc.reference.delete();
+    }
+
+    // 4. Delete announcements subcollection
+    await _deleteSubcollection(ngoRef.collection('announcements'));
+
+    // 5. Delete the NGO document itself
+    await ngoRef.delete();
+  }
+
+  /// Deletes all documents in a collection reference in batches of 400.
+  /// Loops until the collection is empty to handle large datasets.
+  Future<void> _deleteSubcollection(CollectionReference col) async {
+    const batchSize = 400;
+    QuerySnapshot snap;
+    do {
+      snap = await col.limit(batchSize).get();
+      if (snap.docs.isEmpty) break;
+      final batch = _db.batch();
+      for (final doc in snap.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+    } while (snap.docs.length == batchSize);
   }
 }

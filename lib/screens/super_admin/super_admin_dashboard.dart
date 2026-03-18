@@ -228,7 +228,6 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard>
           children: [
             _SheetHandle(),
             const SizedBox(height: 24),
-            // Success Badge
             Container(
               width: 72,
               height: 72,
@@ -262,7 +261,6 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard>
               ),
             ),
             const SizedBox(height: 28),
-            // Code Card
             GestureDetector(
               onTap: () {
                 Clipboard.setData(ClipboardData(text: joinCode));
@@ -352,8 +350,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard>
     );
   }
 
- 
-
+  // ─── My NGOs Sheet ───────────────────────────────────────────────────────
   Future<void> _showMyNgosSheet() async {
     final uid = _authService.currentUser?.uid ?? '';
     if (uid.isEmpty) {
@@ -380,7 +377,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard>
           ),
           child: Column(
             children: [
-              // Header (fixed, doesn't scroll)
+              // Header
               Container(
                 decoration: const BoxDecoration(
                   color: _AppColors.surface,
@@ -450,7 +447,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard>
                   ],
                 ),
               ),
-              // Scrollable NGO list
+              // NGO list
               Expanded(
                 child: StreamBuilder(
                   stream: _ngoService.getNgosForSuperAdmin(uid),
@@ -533,6 +530,19 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard>
                             ),
                           );
                         },
+                        // ── NEW: delete callback ──────────────────────────
+                        onDelete: () async {
+                          // Close the sheet first so the dialog can show cleanly
+                          Navigator.pop(ctx);
+                          await Future.delayed(
+                            const Duration(milliseconds: 180),
+                          );
+                          if (!context.mounted) return;
+                          await _confirmAndDeleteNgo(
+                            ngoId: ngos[i].ngoId,
+                            ngoName: ngos[i].name,
+                          );
+                        },
                       ),
                     );
                   },
@@ -543,6 +553,297 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard>
         ),
       ),
     );
+  }
+
+  // ─── Delete NGO confirmation + execution ─────────────────────────────────
+  Future<void> _confirmAndDeleteNgo({
+    required String ngoId,
+    required String ngoName,
+  }) async {
+    final nameCtrl = TextEditingController();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) {
+          bool nameMatches = false;
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            backgroundColor: _AppColors.surface,
+            contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+            titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: _AppColors.redLight,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.delete_forever_rounded,
+                    color: _AppColors.red,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Delete NGO',
+                    style: GoogleFonts.dmSans(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 18,
+                      color: _AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            content: StatefulBuilder(
+              builder: (ctx2, setS2) {
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Warning banner
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: _AppColors.redLight,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: _AppColors.red.withValues(alpha: 0.2),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '⚠️ This action is permanent',
+                            style: GoogleFonts.dmSans(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                              color: _AppColors.red,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Deleting "$ngoName" will permanently erase:',
+                            style: GoogleFonts.dmSans(
+                              fontSize: 12,
+                              color: _AppColors.red,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          ...[
+                            '• All tasks and assignments',
+                            '• All chats and messages',
+                            '• All announcements',
+                            '• All member associations',
+                          ].map(
+                            (line) => Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Text(
+                                line,
+                                style: GoogleFonts.dmSans(
+                                  fontSize: 12,
+                                  color: _AppColors.red.withValues(alpha: 0.8),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    RichText(
+                      text: TextSpan(
+                        style: GoogleFonts.dmSans(
+                          fontSize: 13,
+                          color: _AppColors.textSecondary,
+                        ),
+                        children: [
+                          const TextSpan(text: 'Type '),
+                          TextSpan(
+                            text: ngoName,
+                            style: GoogleFonts.dmSans(
+                              fontWeight: FontWeight.w700,
+                              color: _AppColors.textPrimary,
+                            ),
+                          ),
+                          const TextSpan(text: ' to confirm deletion:'),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: nameCtrl,
+                      style: GoogleFonts.dmSans(
+                        fontSize: 14,
+                        color: _AppColors.textPrimary,
+                      ),
+                      onChanged: (val) {
+                        setS2(() => nameMatches = val.trim() == ngoName.trim());
+                      },
+                      decoration: InputDecoration(
+                        hintText: ngoName,
+                        hintStyle: GoogleFonts.dmSans(
+                          color: _AppColors.textTertiary,
+                          fontSize: 13,
+                        ),
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: _AppColors.border,
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: _AppColors.border,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: _AppColors.red,
+                            width: 1.5,
+                          ),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: _AppColors.textSecondary,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              side: const BorderSide(color: _AppColors.border),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: Text(
+                              'Cancel',
+                              style: GoogleFonts.dmSans(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: ElevatedButton(
+                            // Only enabled when name matches
+                            onPressed: nameMatches
+                                ? () => Navigator.pop(ctx, true)
+                                : null,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _AppColors.red,
+                              foregroundColor: Colors.white,
+                              disabledBackgroundColor: _AppColors.red
+                                  .withValues(alpha: 0.3),
+                              disabledForegroundColor: Colors.white.withValues(
+                                alpha: 0.5,
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(
+                                  Icons.delete_forever_rounded,
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Delete',
+                                  style: GoogleFonts.dmSans(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+              },
+            ),
+          );
+        },
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    // Show a loading snack while deleting
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                color: Colors.white,
+                strokeWidth: 2,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Deleting "$ngoName"…',
+              style: GoogleFonts.dmSans(fontSize: 13),
+            ),
+          ],
+        ),
+        backgroundColor: _AppColors.dark,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        duration: const Duration(seconds: 10), // will be replaced on completion
+      ),
+    );
+
+    try {
+      await _ngoService.deleteNgo(ngoId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      _snack(
+        '"$ngoName" has been permanently deleted.',
+        bg: _AppColors.red,
+        icon: Icons.delete_rounded,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      _snack(
+        'Failed to delete: $e',
+        bg: _AppColors.red,
+        icon: Icons.error_rounded,
+      );
+    }
   }
 
   // ─── Build ───────────────────────────────────────────────────────────────
@@ -576,7 +877,6 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard>
         body: SafeArea(
           child: CustomScrollView(
             slivers: [
-              // ── App Bar ──────────────────────────────────────────────
               SliverPersistentHeader(
                 floating: true,
                 delegate: _AppBarDelegate(
@@ -590,12 +890,10 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard>
                   },
                 ),
               ),
-
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
-                    // ── Hero Card ──────────────────────────────────────
                     FadeTransition(
                       opacity: _staggered[0],
                       child: SlideTransition(
@@ -610,10 +908,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard>
                         ),
                       ),
                     ),
-
                     const SizedBox(height: 32),
-
-                    // ── Section Label ──────────────────────────────────
                     FadeTransition(
                       opacity: _staggered[1],
                       child: Row(
@@ -639,10 +934,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard>
                         ],
                       ),
                     ),
-
                     const SizedBox(height: 14),
-
-                    // ── Action Cards ───────────────────────────────────
                     ...List.generate(3, (i) {
                       final items = [
                         _ActionItem(
@@ -672,7 +964,9 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard>
                           onTap: () async {
                             final userUid = _authService.currentUser?.uid;
                             if (userUid == null) return;
-                            final user = await _userService.getUserById(userUid);
+                            final user = await _userService.getUserById(
+                              userUid,
+                            );
                             if (user != null && context.mounted) {
                               Navigator.push(
                                 context,
@@ -746,7 +1040,6 @@ class _HeroCard extends StatelessWidget {
           ),
           child: Stack(
             children: [
-              // Background decorations
               Positioned(
                 top: -40,
                 right: -40,
@@ -783,13 +1076,11 @@ class _HeroCard extends StatelessWidget {
                   ),
                 ),
               ),
-              // Content
               Padding(
                 padding: const EdgeInsets.all(26),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Top row
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -864,10 +1155,11 @@ class _HeroCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    // Divider
-                    Container(height: 1, color: Colors.white.withValues(alpha: 0.07)),
+                    Container(
+                      height: 1,
+                      color: Colors.white.withValues(alpha: 0.07),
+                    ),
                     const SizedBox(height: 20),
-                    // Stats row
                     StreamBuilder(
                       stream: ngoService.getNgosForSuperAdmin(uid),
                       builder: (ctx, snap) {
@@ -981,7 +1273,7 @@ class _ActionItem {
   });
 }
 
-// ─── Action Card (horizontal list-style) ─────────────────────────────────────
+// ─── Action Card ──────────────────────────────────────────────────────────────
 class _ActionCard extends StatefulWidget {
   final _ActionItem item;
   const _ActionCard({required this.item});
@@ -1022,7 +1314,6 @@ class _ActionCardState extends State<_ActionCard> {
           ),
           child: Row(
             children: [
-              // Icon container
               Container(
                 width: 52,
                 height: 52,
@@ -1033,7 +1324,6 @@ class _ActionCardState extends State<_ActionCard> {
                 child: Icon(item.icon, color: item.accent, size: 26),
               ),
               const SizedBox(width: 16),
-              // Text
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1059,7 +1349,6 @@ class _ActionCardState extends State<_ActionCard> {
                 ),
               ),
               const SizedBox(width: 12),
-              // Chevron badge
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 10,
@@ -1097,12 +1386,12 @@ class _ActionCardState extends State<_ActionCard> {
   }
 }
 
-// ─── NGO Card (inside the sheet) ─────────────────────────────────────────────
+// ─── NGO Card (updated with Delete button) ───────────────────────────────────
 class _NgoCard extends StatelessWidget {
   final dynamic ngo;
   final String uid;
   final BuildContext parentContext;
-  final VoidCallback onManage, onCopy;
+  final VoidCallback onManage, onCopy, onDelete; // ← onDelete added
 
   const _NgoCard({
     required this.ngo,
@@ -1110,6 +1399,7 @@ class _NgoCard extends StatelessWidget {
     required this.parentContext,
     required this.onManage,
     required this.onCopy,
+    required this.onDelete, // ← added
   });
 
   @override
@@ -1130,7 +1420,6 @@ class _NgoCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // Top section
           Padding(
             padding: const EdgeInsets.all(18),
             child: Column(
@@ -1211,7 +1500,6 @@ class _NgoCard extends StatelessWidget {
                   ),
                 ],
                 const SizedBox(height: 14),
-                // Join Code Badge
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 14,
@@ -1255,14 +1543,14 @@ class _NgoCard extends StatelessWidget {
               ],
             ),
           ),
-          // Divider
           Container(height: 1, color: _AppColors.border),
-          // Action row
+          // ── Action row (3 buttons now) ──────────────────────────────────
           Padding(
             padding: const EdgeInsets.all(14),
             child: Row(
               children: [
                 Expanded(
+                  flex: 2,
                   child: _SheetBtn(
                     label: 'Manage Members',
                     icon: Icons.people_rounded,
@@ -1271,7 +1559,7 @@ class _NgoCard extends StatelessWidget {
                     onTap: onManage,
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
                 Expanded(
                   child: _SheetBtn(
                     label: 'Copy Code',
@@ -1280,6 +1568,16 @@ class _NgoCard extends StatelessWidget {
                     bg: _AppColors.greenLight,
                     onTap: onCopy,
                   ),
+                ),
+                const SizedBox(width: 8),
+                // ── Delete button ───────────────────────────────────────
+                _SheetBtn(
+                  label: '',
+                  icon: Icons.delete_forever_rounded,
+                  color: _AppColors.red,
+                  bg: _AppColors.redLight,
+                  onTap: onDelete,
+                  iconOnly: true,
                 ),
               ],
             ),
@@ -1365,18 +1663,21 @@ class _BottomSheet extends StatelessWidget {
   }
 }
 
-// ─── Reusable Sheet Button (properly aligned) ─────────────────────────────────
+// ─── Sheet Button (updated to support icon-only mode) ────────────────────────
 class _SheetBtn extends StatefulWidget {
   final String label;
   final IconData icon;
   final Color color, bg;
   final VoidCallback onTap;
+  final bool iconOnly; // ← new
+
   const _SheetBtn({
     required this.label,
     required this.icon,
     required this.color,
     required this.bg,
     required this.onTap,
+    this.iconOnly = false,
   });
 
   @override
@@ -1399,27 +1700,31 @@ class _SheetBtnState extends State<_SheetBtn> {
         scale: _pressed ? 0.95 : 1.0,
         duration: const Duration(milliseconds: 90),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
+          padding: widget.iconOnly
+              ? const EdgeInsets.all(12)
+              : const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
             color: widget.bg,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: widget.color.withValues(alpha: 0.15)),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(widget.icon, size: 15, color: widget.color),
-              const SizedBox(width: 7),
-              Text(
-                widget.label,
-                style: GoogleFonts.dmSans(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: widget.color,
+          child: widget.iconOnly
+              ? Icon(widget.icon, size: 18, color: widget.color)
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(widget.icon, size: 15, color: widget.color),
+                    const SizedBox(width: 7),
+                    Text(
+                      widget.label,
+                      style: GoogleFonts.dmSans(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: widget.color,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          ),
         ),
       ),
     );
@@ -1695,7 +2000,9 @@ class _AppBarDelegate extends SliverPersistentHeaderDelegate {
               decoration: BoxDecoration(
                 color: _AppColors.redLight,
                 borderRadius: BorderRadius.circular(11),
-                border: Border.all(color: _AppColors.red.withValues(alpha: 0.15)),
+                border: Border.all(
+                  color: _AppColors.red.withValues(alpha: 0.15),
+                ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
