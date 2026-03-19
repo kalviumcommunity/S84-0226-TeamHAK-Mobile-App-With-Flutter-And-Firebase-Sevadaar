@@ -241,6 +241,18 @@ class AuthService {
     throw Exception('User profile not found in Firestore.');
   }
 
+  /// Returns a stream of the user's profile for real-time UI updates.
+  Stream<UserModel?> streamUserProfile(String uid) {
+    try {
+      return _db.collection('users').doc(uid).snapshots().map((doc) {
+        if (!doc.exists) return null;
+        return UserModel.fromMap(doc.data()!, uid);
+      });
+    } catch (e) {
+      return Stream.value(null);
+    }
+  }
+
   // ── Sign Out ────────────────────────────────────────────────────
   Future<void> signOut() async {
     await _auth.signOut();
