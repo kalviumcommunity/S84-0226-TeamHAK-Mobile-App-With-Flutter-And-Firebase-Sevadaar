@@ -14,6 +14,7 @@ import '../../services/user_service.dart';
 import '../../state/chat_provider.dart';
 import '../auth/login_screen.dart';
 import '../chat/chat_list_screen.dart';
+import '../shared/notifications_tab.dart';
 import 'create_task_screen.dart';
 import 'task_detail_screen.dart';
 
@@ -68,6 +69,8 @@ class _AdminDashboardState extends State<AdminDashboard>
   final _userService = UserService();
   final _ngoService = NgoService();
 
+  StreamSubscription<UserModel?>? _roleSub;
+
   int _selectedTab = 0;
   UserModel? _currentUser;
   NgoModel? _currentNgo;
@@ -85,10 +88,44 @@ class _AdminDashboardState extends State<AdminDashboard>
     );
     _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut);
     _loadCurrentUser();
+
+    final uid = _auth.currentUser?.uid;
+    if (uid != null) {
+      _roleSub = _userService.streamUser(uid).listen((user) {
+        if (user != null && _currentUser != null && user.role != _currentUser!.role) {
+          _showRoleChangeDialog();
+        }
+      });
+    }
+  }
+
+  void _showRoleChangeDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Role Updated'),
+        content: const Text('Your role has been changed. Please login again to refresh your dashboard.'),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              await _auth.signOut();
+              if (!mounted) return;
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                (route) => false,
+              );
+            },
+            child: const Text('Login Again'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   void dispose() {
+    _roleSub?.cancel();
     _fadeCtrl.dispose();
     super.dispose();
   }
@@ -195,7 +232,7 @@ class _AdminDashboardState extends State<AdminDashboard>
                 )
               : null,
           onTab: (i) {
-            if (i == 3) {
+            if (i == 4) {
               _confirmSignOut();
               return;
             }
@@ -240,6 +277,8 @@ class _AdminDashboardState extends State<AdminDashboard>
       );
     } else if (_selectedTab == 2) {
       return ChatListScreen(currentUser: _currentUser!);
+    } else if (_selectedTab == 3) {
+      return NotificationsTab(currentUser: _currentUser!);
     }
     return const SizedBox.shrink();
   }
@@ -319,10 +358,16 @@ class _BottomNav extends StatelessWidget {
                 badge: chatBadge,
               ),
               _NavItem(
+                icon: Icons.notifications_active_rounded,
+                label: 'Notices',
+                selected: selected == 3,
+                onTap: () => onTab(3),
+              ),
+              _NavItem(
                 icon: Icons.logout_rounded,
                 label: 'Sign Out',
                 selected: false,
-                onTap: () => onTab(3),
+                onTap: () => onTab(4),
               ),
             ],
           ),

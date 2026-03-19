@@ -383,7 +383,7 @@ class _ChatTile extends ConsumerWidget {
                   );
                 },
                 loading: () => const SizedBox.shrink(),
-                error: (_, __) => const SizedBox.shrink(),
+                error: (_,_) => const SizedBox.shrink(),
               ),
 
               // ── Last message ───────────────────────────────────────────
@@ -558,7 +558,7 @@ class _ChatTile extends ConsumerWidget {
                 child: ListView.separated(
                   shrinkWrap: true,
                   itemCount: participants.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 4),
+                  separatorBuilder: (_,_) => const SizedBox(height: 4),
                   itemBuilder: (_, i) {
                     final user = participants[i];
                     final isCurrentUser = user.uid == currentUser.uid;
