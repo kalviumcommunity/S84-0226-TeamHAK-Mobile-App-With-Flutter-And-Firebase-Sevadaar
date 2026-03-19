@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../services/auth_service.dart';
-import '../auth/login_screen.dart';
+import '../../models/user_model.dart';
+import '../../widgets/profile_button.dart';
 import 'join_ngo_screen.dart';
 import 'register_ngo_screen.dart';
 
 /// Shown when user.ngoId == null.
 /// Offers: Join NGO | Register New NGO.
 class NoNgoDashboard extends StatelessWidget {
-  const NoNgoDashboard({super.key});
+  final UserModel currentUser;
+  const NoNgoDashboard({super.key, required this.currentUser});
 
   @override
   Widget build(BuildContext context) {
@@ -31,20 +32,7 @@ class NoNgoDashboard extends StatelessWidget {
                       color: const Color(0xFF6A74F8),
                     ),
                   ),
-                  IconButton(
-                    onPressed: () async {
-                      await AuthService().signOut();
-                      if (!context.mounted) return;
-                      Navigator.of(context).pushAndRemoveUntil(
-                        MaterialPageRoute(
-                            builder: (_) => const LoginScreen()),
-                        (_) => false,
-                      );
-                    },
-                    icon: const Icon(Icons.logout_rounded,
-                        color: Colors.redAccent),
-                    tooltip: 'Sign Out',
-                  ),
+                  ProfileButton(currentUser: currentUser),
                 ],
               ),
 

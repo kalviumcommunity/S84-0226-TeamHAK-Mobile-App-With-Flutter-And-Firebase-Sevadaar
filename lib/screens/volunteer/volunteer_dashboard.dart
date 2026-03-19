@@ -10,13 +10,10 @@ import '../../models/ngo_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/ngo_service.dart';
 import '../../services/task_service.dart';
-import '../../services/user_service.dart';
 import '../../state/chat_provider.dart';
-import '../auth/login_screen.dart';
 import '../chat/chat_list_screen.dart';
-import '../shared/notifications_tab.dart';
-
-import 'dart:async';
+import 'notices_tab.dart';
+import '../../widgets/profile_button.dart';
 
 // ─── Design Tokens (matches admin dashboard) ─────────────────────────────────
 class _C {
@@ -58,6 +55,25 @@ Future<T> _withNetworkTimeout<T>(Future<T> operation) {
   );
 }
 
+void _snack(BuildContext context, String msg, Color bg, IconData icon) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Row(
+        children: [
+          Icon(icon, color: Colors.white, size: 15),
+          const SizedBox(width: 8),
+          Expanded(child: Text(msg, style: GoogleFonts.dmSans(fontSize: 13))),
+        ],
+      ),
+      backgroundColor: bg,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      duration: const Duration(seconds: 2),
+    ),
+  );
+}
+
 // ─── Root Dashboard ───────────────────────────────────────────────────────────
 class VolunteerDashboard extends StatefulWidget {
   const VolunteerDashboard({super.key});
@@ -70,9 +86,6 @@ class _VolunteerDashboardState extends State<VolunteerDashboard>
   final _auth = AuthService();
   final _taskService = TaskService();
   final _ngoService = NgoService();
-  final _userService = UserService();
-
-  StreamSubscription<UserModel?>? _roleSub;
 
   int _selectedTab = 0;
   UserModel? _currentUser;
@@ -92,44 +105,10 @@ class _VolunteerDashboardState extends State<VolunteerDashboard>
     );
     _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut);
     _loadUser();
-
-    final uid = _auth.currentUser?.uid;
-    if (uid != null) {
-      _roleSub = _userService.streamUser(uid).listen((user) {
-        if (user != null && _currentUser != null && user.role != _currentUser!.role) {
-          _showRoleChangeDialog();
-        }
-      });
-    }
-  }
-
-  void _showRoleChangeDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Role Updated'),
-        content: const Text('Your role has been changed. Please login again to refresh your dashboard.'),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              await _auth.signOut();
-              if (!mounted) return;
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const LoginScreen()),
-                (route) => false,
-              );
-            },
-            child: const Text('Login Again'),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
   void dispose() {
-    _roleSub?.cancel();
     _fadeCtrl.dispose();
     super.dispose();
   }
@@ -277,10 +256,6 @@ class _VolunteerDashboardState extends State<VolunteerDashboard>
                 )
               : null,
           onTab: (i) {
-            if (i == 5) {
-              _confirmSignOut();
-              return;
-            }
             setState(() => _selectedTab = i);
           },
         ),
@@ -309,7 +284,7 @@ class _VolunteerDashboardState extends State<VolunteerDashboard>
       case 3:
         return ChatListScreen(currentUser: _currentUser!);
       case 4:
-        return NotificationsTab(currentUser: _currentUser!);
+        return NoticesTab(currentUser: _currentUser!);
       default:
         return _TasksTab(
           currentUser: _currentUser!,
@@ -319,26 +294,7 @@ class _VolunteerDashboardState extends State<VolunteerDashboard>
     }
   }
 
-  Future<void> _confirmSignOut() async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => _LightDialog(
-        title: 'Sign Out?',
-        body: 'You will be returned to the login screen.',
-        confirmLabel: 'Sign Out',
-        confirmColor: _C.red,
-        onConfirm: () => Navigator.pop(ctx, true),
-        onCancel: () => Navigator.pop(ctx, false),
-      ),
-    );
-    if (ok != true || !mounted) return;
-    await _auth.signOut();
-    if (!mounted) return;
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-      (_) => false,
-    );
-  }
+
 }
 
 // ─── Bottom Nav ───────────────────────────────────────────────────────────────
@@ -407,12 +363,6 @@ class _BottomNav extends StatelessWidget {
                 label: 'Notices',
                 selected: selected == 4,
                 onTap: () => onTab(4),
-              ),
-              _NavItem(
-                icon: Icons.logout_rounded,
-                label: 'Sign Out',
-                selected: false,
-                onTap: () => onTab(5),
               ),
             ],
           ),
@@ -693,6 +643,8 @@ class _Header extends StatelessWidget {
                     ],
                   ),
                 ),
+                const SizedBox(width: 12),
+                ProfileButton(currentUser: currentUser),
               ],
             ),
           ),
@@ -1747,22 +1699,28 @@ class _InvitesTab extends StatelessWidget {
           bottom: false,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Invitations',
-                  style: GoogleFonts.dmSans(
-                    color: _C.textPri,
-                    fontSize: 28,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.5,
-                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Invitations',
+                      style: GoogleFonts.dmSans(
+                        color: _C.textPri,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    Text(
+                      'Review task invitations from your admin',
+                      style: GoogleFonts.dmSans(color: _C.textSec, fontSize: 13),
+                    ),
+                  ],
                 ),
-                Text(
-                  'Review task invitations from your admin',
-                  style: GoogleFonts.dmSans(color: _C.textSec, fontSize: 13),
-                ),
+                ProfileButton(currentUser: currentUser),
               ],
             ),
           ),
@@ -2058,22 +2016,28 @@ class _NgoTasksTabState extends State<_NgoTasksTab> {
           bottom: false,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'NGO Tasks',
-                  style: GoogleFonts.dmSans(
-                    color: _C.textPri,
-                    fontSize: 28,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.5,
-                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'NGO Tasks',
+                      style: GoogleFonts.dmSans(
+                        color: _C.textPri,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    Text(
+                      'Browse and join tasks from your NGO',
+                      style: GoogleFonts.dmSans(color: _C.textSec, fontSize: 13),
+                    ),
+                  ],
                 ),
-                Text(
-                  'Browse and join tasks from your NGO',
-                  style: GoogleFonts.dmSans(color: _C.textSec, fontSize: 13),
-                ),
+                ProfileButton(currentUser: widget.currentUser),
               ],
             ),
           ),
@@ -2853,133 +2817,3 @@ class _PulseLoader extends StatelessWidget {
       const CircularProgressIndicator(color: _C.blue, strokeWidth: 2.5);
 }
 
-class _LightDialog extends StatelessWidget {
-  final String title, body, confirmLabel;
-  final Color confirmColor;
-  final VoidCallback onConfirm, onCancel;
-  const _LightDialog({
-    required this.title,
-    required this.body,
-    required this.confirmLabel,
-    required this.confirmColor,
-    required this.onConfirm,
-    required this.onCancel,
-  });
-  @override
-  Widget build(BuildContext context) => Dialog(
-    backgroundColor: Colors.transparent,
-    child: Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.12),
-            blurRadius: 30,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: GoogleFonts.dmSans(
-              color: _C.textPri,
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            body,
-            style: GoogleFonts.dmSans(
-              color: _C.textSec,
-              fontSize: 14,
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: 24),
-          Row(
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap: onCancel,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: _C.border),
-                      color: _C.divider,
-                    ),
-                    child: Center(
-                      child: Text(
-                        'Cancel',
-                        style: GoogleFonts.dmSans(
-                          color: _C.textSec,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: GestureDetector(
-                  onTap: onConfirm,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(
-                      color: confirmColor,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: confirmColor.withValues(alpha: 0.3),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Center(
-                      child: Text(
-                        confirmLabel,
-                        style: GoogleFonts.dmSans(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-void _snack(BuildContext context, String msg, Color bg, IconData icon) {
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Row(
-        children: [
-          Icon(icon, color: Colors.white, size: 15),
-          const SizedBox(width: 8),
-          Expanded(child: Text(msg, style: GoogleFonts.dmSans(fontSize: 13))),
-        ],
-      ),
-      backgroundColor: bg,
-      behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      duration: const Duration(seconds: 2),
-    ),
-  );
-}

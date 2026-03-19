@@ -4,8 +4,9 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../services/auth_service.dart';
 import '../../services/ngo_service.dart';
 import '../../services/user_service.dart';
-import '../auth/login_screen.dart';
 import '../chat/chat_list_screen.dart';
+import '../../widgets/profile_button.dart';
+import '../../models/user_model.dart';
 import 'manage_admins_screen.dart';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
@@ -892,14 +893,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard>
               SliverPersistentHeader(
                 floating: true,
                 delegate: _AppBarDelegate(
-                  onLogout: () async {
-                    await _authService.signOut();
-                    if (!context.mounted) return;
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(builder: (_) => const LoginScreen()),
-                      (_) => false,
-                    );
-                  },
+                  uid: uid,
                 ),
               ),
               SliverPadding(
@@ -1948,8 +1942,8 @@ class _SheetHandle extends StatelessWidget {
 
 // ─── Custom App Bar Delegate ──────────────────────────────────────────────────
 class _AppBarDelegate extends SliverPersistentHeaderDelegate {
-  final VoidCallback onLogout;
-  const _AppBarDelegate({required this.onLogout});
+  final String uid;
+  const _AppBarDelegate({required this.uid});
 
   @override
   double get minExtent => 70;
@@ -2005,38 +1999,16 @@ class _AppBarDelegate extends SliverPersistentHeaderDelegate {
             ],
           ),
           const Spacer(),
-          GestureDetector(
-            onTap: onLogout,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-              decoration: BoxDecoration(
-                color: _AppColors.redLight,
-                borderRadius: BorderRadius.circular(11),
-                border: Border.all(
-                  color: _AppColors.red.withValues(alpha: 0.15),
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.logout_rounded,
-                    color: _AppColors.red,
-                    size: 15,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Logout',
-                    style: GoogleFonts.dmSans(
-                      color: _AppColors.red,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
+          if (uid.isNotEmpty)
+            StreamBuilder<UserModel?>(
+              stream: UserService().streamUser(uid),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData || snapshot.data == null) {
+                  return const SizedBox.shrink();
+                }
+                return ProfileButton(currentUser: snapshot.data!);
+              },
             ),
-          ),
         ],
       ),
     );

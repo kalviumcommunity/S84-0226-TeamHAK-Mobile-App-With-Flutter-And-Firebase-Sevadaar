@@ -12,11 +12,10 @@ import '../../services/ngo_service.dart';
 import '../../services/task_service.dart';
 import '../../services/user_service.dart';
 import '../../state/chat_provider.dart';
-import '../auth/login_screen.dart';
 import '../chat/chat_list_screen.dart';
-import '../shared/notifications_tab.dart';
 import 'create_task_screen.dart';
 import 'task_detail_screen.dart';
+import '../../widgets/profile_button.dart';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 class _C {
@@ -69,8 +68,6 @@ class _AdminDashboardState extends State<AdminDashboard>
   final _userService = UserService();
   final _ngoService = NgoService();
 
-  StreamSubscription<UserModel?>? _roleSub;
-
   int _selectedTab = 0;
   UserModel? _currentUser;
   NgoModel? _currentNgo;
@@ -88,44 +85,10 @@ class _AdminDashboardState extends State<AdminDashboard>
     );
     _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut);
     _loadCurrentUser();
-
-    final uid = _auth.currentUser?.uid;
-    if (uid != null) {
-      _roleSub = _userService.streamUser(uid).listen((user) {
-        if (user != null && _currentUser != null && user.role != _currentUser!.role) {
-          _showRoleChangeDialog();
-        }
-      });
-    }
-  }
-
-  void _showRoleChangeDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Role Updated'),
-        content: const Text('Your role has been changed. Please login again to refresh your dashboard.'),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              await _auth.signOut();
-              if (!mounted) return;
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const LoginScreen()),
-                (route) => false,
-              );
-            },
-            child: const Text('Login Again'),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
   void dispose() {
-    _roleSub?.cancel();
     _fadeCtrl.dispose();
     super.dispose();
   }
@@ -232,10 +195,6 @@ class _AdminDashboardState extends State<AdminDashboard>
                 )
               : null,
           onTab: (i) {
-            if (i == 4) {
-              _confirmSignOut();
-              return;
-            }
             setState(() => _selectedTab = i);
           },
         ),
@@ -277,32 +236,11 @@ class _AdminDashboardState extends State<AdminDashboard>
       );
     } else if (_selectedTab == 2) {
       return ChatListScreen(currentUser: _currentUser!);
-    } else if (_selectedTab == 3) {
-      return NotificationsTab(currentUser: _currentUser!);
     }
     return const SizedBox.shrink();
   }
 
-  Future<void> _confirmSignOut() async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => _LightDialog(
-        title: 'Sign Out?',
-        body: 'You will be returned to the login screen.',
-        confirmLabel: 'Sign Out',
-        confirmColor: _C.red,
-        onConfirm: () => Navigator.pop(ctx, true),
-        onCancel: () => Navigator.pop(ctx, false),
-      ),
-    );
-    if (ok != true || !mounted) return;
-    await _auth.signOut();
-    if (!mounted) return;
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-      (_) => false,
-    );
-  }
+
 }
 
 // ─── Bottom Nav ───────────────────────────────────────────────────────────────
@@ -356,18 +294,6 @@ class _BottomNav extends StatelessWidget {
                 selected: selected == 2,
                 onTap: () => onTab(2),
                 badge: chatBadge,
-              ),
-              _NavItem(
-                icon: Icons.notifications_active_rounded,
-                label: 'Notices',
-                selected: selected == 3,
-                onTap: () => onTab(3),
-              ),
-              _NavItem(
-                icon: Icons.logout_rounded,
-                label: 'Sign Out',
-                selected: false,
-                onTap: () => onTab(4),
               ),
             ],
           ),
@@ -713,6 +639,8 @@ class _Header extends StatelessWidget {
                     ],
                   ),
                 ),
+                const SizedBox(width: 12),
+                ProfileButton(currentUser: currentUser),
               ],
             ),
           ),
@@ -1509,22 +1437,28 @@ class _RequestsTab extends StatelessWidget {
           bottom: false,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Requests',
-                  style: GoogleFonts.dmSans(
-                    color: _C.textPri,
-                    fontSize: 28,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.5,
-                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Requests',
+                      style: GoogleFonts.dmSans(
+                        color: _C.textPri,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    Text(
+                      'Review volunteer progress updates',
+                      style: GoogleFonts.dmSans(color: _C.textSec, fontSize: 13),
+                    ),
+                  ],
                 ),
-                Text(
-                  'Review volunteer progress updates',
-                  style: GoogleFonts.dmSans(color: _C.textSec, fontSize: 13),
-                ),
+                ProfileButton(currentUser: currentUser!),
               ],
             ),
           ),

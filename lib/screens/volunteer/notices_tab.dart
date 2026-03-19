@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import '../../models/user_model.dart';
+import '../../widgets/profile_button.dart';
 import '../../models/notice_model.dart';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
@@ -93,6 +94,8 @@ class NoticesTab extends StatelessWidget {
                           ),
                         ],
                       ),
+                      const Spacer(),
+                      ProfileButton(currentUser: currentUser),
                     ],
                   ),
                 ),
