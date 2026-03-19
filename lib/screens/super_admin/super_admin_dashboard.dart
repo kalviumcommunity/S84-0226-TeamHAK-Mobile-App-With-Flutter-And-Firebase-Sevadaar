@@ -507,8 +507,9 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard>
                           // Close the sheet first, then show the snackbar so it
                           // is never obscured by the modal overlay.
                           Navigator.pop(ctx);
-                          Future.microtask(
-                            () => ScaffoldMessenger.of(context).showSnackBar(
+                          Future.microtask(() {
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Row(
                                   children: [
@@ -537,8 +538,8 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard>
                                 ),
                                 duration: const Duration(seconds: 2),
                               ),
-                            ),
-                          );
+                            );
+                          });
                         },
                         // ── NEW: delete callback ──────────────────────────
                         onDelete: () async {
@@ -808,6 +809,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard>
 
     if (confirmed != true) return;
 
+    if (!mounted) return;
     // Show a loading snack while deleting
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

@@ -3,11 +3,13 @@ import '../models/ngo_request_model.dart';
 import '../models/ngo_model.dart';
 import 'ngo_service.dart';
 import 'user_service.dart';
+import 'firestore_notification_service.dart';
 
 class NgoRequestService {
   FirebaseFirestore? _dbInstance;
   final _ngoService = NgoService();
   final _userService = UserService();
+  final _notifService = FirestoreNotificationService();
 
   FirebaseFirestore get _db {
     try {
@@ -41,6 +43,16 @@ class NgoRequestService {
     );
     await docRef.set(request.toMap());
     await _userService.updateNgoRequestStatus(requestedBy, 'pending');
+    
+    // Notify the user that their request is submitted
+    await _notifService.sendNotification(
+      recipientUid: requestedBy,
+      title: 'NGO Request Submitted',
+      body: 'Your NGO "${ngoName.trim()}" is now pending approval by Dev Admin.',
+      type: 'ngo_request',
+      taskId: '',
+    );
+    
     return request;
   }
 
@@ -77,6 +89,16 @@ class NgoRequestService {
         .collection('ngo_requests')
         .doc(request.requestId)
         .update({'status': 'approved'});
+        
+    // Notify the user of approval
+    await _notifService.sendNotification(
+      recipientUid: request.requestedBy,
+      title: 'NGO Request Approved',
+      body: 'Your NGO "${request.ngoName}" has been approved! Please sign in again to access the Super Admin Dashboard.',
+      type: 'ngo_request',
+      taskId: '',
+    );
+    
     return ngo;
   }
 
@@ -86,6 +108,15 @@ class NgoRequestService {
         .doc(request.requestId)
         .update({'status': 'rejected'});
     await _userService.updateNgoRequestStatus(request.requestedBy, 'rejected');
+    
+    // Notify the user of rejection
+    await _notifService.sendNotification(
+      recipientUid: request.requestedBy,
+      title: 'NGO Request Rejected',
+      body: 'Your NGO request for "${request.ngoName}" was unfortunately rejected.',
+      type: 'ngo_request',
+      taskId: '',
+    );
   }
 
   Future<NgoRequestModel?> getRequestByUser(String userId) async {

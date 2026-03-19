@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_model.dart';
+import 'firestore_notification_service.dart';
 
 class UserService {
   FirebaseFirestore? _dbInstance;
@@ -58,12 +59,48 @@ class UserService {
   }
 
   /// Promote a volunteer to Admin for their NGO.
-  Future<void> promoteToAdmin(String uid) async =>
-      await _db.collection('users').doc(uid).update({'role': 'admin'});
+  Future<void> promoteToAdmin(String uid) async {
+    await _db.collection('users').doc(uid).update({'role': 'admin'});
+
+    final userDoc = await _db.collection('users').doc(uid).get();
+    if (userDoc.exists) {
+      final ngoId = userDoc.data()?['ngoId'];
+      if (ngoId != null && ngoId.toString().isNotEmpty) {
+        final ngoDoc = await _db.collection('ngos').doc(ngoId).get();
+        final ngoName = ngoDoc.data()?['name'] ?? 'your NGO';
+
+        await FirestoreNotificationService().sendNotification(
+          recipientUid: uid,
+          title: 'Promotion to Admin',
+          body: 'You have been promoted to Admin for $ngoName.',
+          type: 'promotion',
+          taskId: '',
+        );
+      }
+    }
+  }
 
   /// Demote an Admin back to Volunteer.
-  Future<void> demoteToVolunteer(String uid) async =>
-      await _db.collection('users').doc(uid).update({'role': 'volunteer'});
+  Future<void> demoteToVolunteer(String uid) async {
+    await _db.collection('users').doc(uid).update({'role': 'volunteer'});
+    
+    final userDoc = await _db.collection('users').doc(uid).get();
+    if (userDoc.exists) {
+      final ngoId = userDoc.data()?['ngoId'];
+      if (ngoId != null && ngoId.toString().isNotEmpty) {
+        final ngoDoc = await _db.collection('ngos').doc(ngoId).get();
+        final ngoName = ngoDoc.data()?['name'] ?? 'your NGO';
+
+        await FirestoreNotificationService().sendNotification(
+          recipientUid: uid,
+          title: 'Role Update',
+          body: 'Your role in $ngoName has been changed to Volunteer.',
+          type: 'demotion',
+          taskId: '',
+        );
+      }
+    }
+  }
 
   /// Save or update the FCM token for push notifications.
   Future<void> saveFcmToken(String uid, String token) async {

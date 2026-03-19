@@ -106,7 +106,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
                 child: ListView.separated(
                   shrinkWrap: true,
                   itemCount: participants.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 4),
+                  separatorBuilder: (_, _) => const SizedBox(height: 4),
                   itemBuilder: (_, i) {
                     final user = participants[i];
                     final isMe = user.uid == widget.currentUser.uid;
@@ -318,7 +318,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
                       color: _C.textSec,
                     ),
                   ),
-                  error: (_, __) => const SizedBox.shrink(),
+                  error: (_, _) => const SizedBox.shrink(),
                 ),
             ],
           ),
@@ -345,7 +345,7 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
                       ),
                     ),
                   ),
-                  error: (_, __) => const SizedBox.shrink(),
+                  error: (_,_) => const SizedBox.shrink(),
                 ),
               ]
             : null,

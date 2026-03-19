@@ -10,10 +10,13 @@ import '../../models/ngo_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/ngo_service.dart';
 import '../../services/task_service.dart';
+import '../../services/user_service.dart';
 import '../../state/chat_provider.dart';
 import '../auth/login_screen.dart';
 import '../chat/chat_list_screen.dart';
-import 'notices_tab.dart';
+import '../shared/notifications_tab.dart';
+
+import 'dart:async';
 
 // ─── Design Tokens (matches admin dashboard) ─────────────────────────────────
 class _C {
@@ -67,6 +70,9 @@ class _VolunteerDashboardState extends State<VolunteerDashboard>
   final _auth = AuthService();
   final _taskService = TaskService();
   final _ngoService = NgoService();
+  final _userService = UserService();
+
+  StreamSubscription<UserModel?>? _roleSub;
 
   int _selectedTab = 0;
   UserModel? _currentUser;
@@ -86,10 +92,44 @@ class _VolunteerDashboardState extends State<VolunteerDashboard>
     );
     _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut);
     _loadUser();
+
+    final uid = _auth.currentUser?.uid;
+    if (uid != null) {
+      _roleSub = _userService.streamUser(uid).listen((user) {
+        if (user != null && _currentUser != null && user.role != _currentUser!.role) {
+          _showRoleChangeDialog();
+        }
+      });
+    }
+  }
+
+  void _showRoleChangeDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Role Updated'),
+        content: const Text('Your role has been changed. Please login again to refresh your dashboard.'),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              await _auth.signOut();
+              if (!mounted) return;
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                (route) => false,
+              );
+            },
+            child: const Text('Login Again'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   void dispose() {
+    _roleSub?.cancel();
     _fadeCtrl.dispose();
     super.dispose();
   }
@@ -269,7 +309,7 @@ class _VolunteerDashboardState extends State<VolunteerDashboard>
       case 3:
         return ChatListScreen(currentUser: _currentUser!);
       case 4:
-        return NoticesTab(currentUser: _currentUser!);
+        return NotificationsTab(currentUser: _currentUser!);
       default:
         return _TasksTab(
           currentUser: _currentUser!,
