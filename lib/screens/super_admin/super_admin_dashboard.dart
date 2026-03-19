@@ -1976,31 +1976,35 @@ class _AppBarDelegate extends SliverPersistentHeaderDelegate {
             ),
           ),
           const SizedBox(width: 12),
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Dashboard',
-                style: GoogleFonts.dmSans(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: _AppColors.textPrimary,
-                  letterSpacing: -0.3,
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Dashboard',
+                  style: GoogleFonts.dmSans(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: _AppColors.textPrimary,
+                    letterSpacing: -0.3,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-              Text(
-                'Super Admin',
-                style: GoogleFonts.dmSans(
-                  fontSize: 11,
-                  color: _AppColors.textTertiary,
+                Text(
+                  'Super Admin',
+                  style: GoogleFonts.dmSans(
+                    fontSize: 11,
+                    color: _AppColors.textTertiary,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-          const Spacer(),
+          const SizedBox(width: 8),
           if (uid.isNotEmpty)
-            StreamBuilder<UserModel?>(
+          StreamBuilder<UserModel?>(
               stream: UserService().streamUser(uid),
               builder: (context, snapshot) {
                 if (!snapshot.hasData || snapshot.data == null) {

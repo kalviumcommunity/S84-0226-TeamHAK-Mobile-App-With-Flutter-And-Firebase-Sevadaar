@@ -105,10 +105,6 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
         elevation: 0,
         centerTitle: true,
         actions: [
-          ProfileButton(currentUser: widget.currentUser),
-          const SizedBox(width: 14),
-          ProfileButton(currentUser: widget.currentUser),
-          const SizedBox(width: 14),
           IconButton(
             icon: const Icon(Icons.archive_outlined, color: _C.textSec),
             onPressed: () {
@@ -120,6 +116,8 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
               );
             },
           ),
+          ProfileButton(currentUser: widget.currentUser),
+          const SizedBox(width: 14),
         ],
       ),
       floatingActionButton: FloatingActionButton(
