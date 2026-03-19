@@ -8,6 +8,7 @@ import '../../state/chat_provider.dart';
 import '../../state/auth_provider.dart';
 import 'chat_room_screen.dart';
 import 'archived_chats_screen.dart';
+import '../../widgets/profile_button.dart';
 
 class _C {
   static const bg = Color(0xFFEEF2F8);
@@ -104,6 +105,10 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
         elevation: 0,
         centerTitle: true,
         actions: [
+          ProfileButton(currentUser: widget.currentUser),
+          const SizedBox(width: 14),
+          ProfileButton(currentUser: widget.currentUser),
+          const SizedBox(width: 14),
           IconButton(
             icon: const Icon(Icons.archive_outlined, color: _C.textSec),
             onPressed: () {

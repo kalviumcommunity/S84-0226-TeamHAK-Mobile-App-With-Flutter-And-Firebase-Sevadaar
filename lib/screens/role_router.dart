@@ -70,7 +70,7 @@ class _RoleRouterState extends State<RoleRouter> {
           if (profile.ngoId == null || profile.ngoId!.isEmpty) {
             _goTo(NotificationWrapper(
               uid: uid,
-              child: const NoNgoDashboard(),
+              child: NoNgoDashboard(currentUser: profile),
             ));
           } else {
             _goTo(NotificationWrapper(
