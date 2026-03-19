@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import '../services/user_service.dart';
+import '../services/ngo_service.dart';
 import '../screens/auth/login_screen.dart';
 
 class ProfileButton extends StatelessWidget {
@@ -59,17 +60,29 @@ class _ProfileModal extends StatefulWidget {
 class _ProfileModalState extends State<_ProfileModal> {
   final _authService = AuthService();
   final _userService = UserService();
+  final _ngoService = NgoService();
   
   late TextEditingController _nameCtrl;
   bool _isEditingName = false;
   bool _isLoading = false;
   String _currentName = '';
+  String? _ngoName;
 
   @override
   void initState() {
     super.initState();
     _currentName = widget.currentUser.name;
     _nameCtrl = TextEditingController(text: _currentName);
+    _fetchNgoName();
+  }
+
+  Future<void> _fetchNgoName() async {
+    if (widget.currentUser.ngoId != null && widget.currentUser.ngoId!.isNotEmpty) {
+      final ngo = await _ngoService.getNgoById(widget.currentUser.ngoId!);
+      if (ngo != null && mounted) {
+        setState(() => _ngoName = ngo.name);
+      }
+    }
   }
 
   @override
@@ -127,11 +140,54 @@ class _ProfileModalState extends State<_ProfileModal> {
 
   String _formatRole(String role) {
     switch (role) {
+      case 'developer_admin': return 'Developer Admin';
       case 'super_admin': return 'Super Admin';
       case 'admin': return 'NGO Admin';
       case 'volunteer': return 'Volunteer';
       default: return role.toUpperCase();
     }
+  }
+
+  Widget _buildInfoRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF4A6CF7).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, size: 20, color: const Color(0xFF4A6CF7)),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: GoogleFonts.dmSans(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Text(
+                  value,
+                  style: GoogleFonts.dmSans(
+                    fontSize: 15,
+                    color: const Color(0xFF0D1B3E),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -246,27 +302,33 @@ class _ProfileModalState extends State<_ProfileModal> {
             ],
           ),
           
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           
-          // Role badge
+          // Details section
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF22C55E).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(20),
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
             ),
-            child: Text(
-              _formatRole(widget.currentUser.role),
-              style: GoogleFonts.dmSans(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF22C55E),
-              ),
+            child: Column(
+              children: [
+                _buildInfoRow(Icons.email_outlined, 'Email', widget.currentUser.email),
+                const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                _buildInfoRow(Icons.admin_panel_settings_outlined, 'Role', _formatRole(widget.currentUser.role)),
+                if (widget.currentUser.ngoId != null && widget.currentUser.ngoId!.isNotEmpty && widget.currentUser.role != 'developer_admin') ...[
+                  const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                  _buildInfoRow(
+                    Icons.business_outlined, 
+                    'NGO', 
+                    _ngoName ?? widget.currentUser.ngoId!
+                  ),
+                ],
+              ],
             ),
           ),
           
-          const SizedBox(height: 32),
-          const Divider(height: 1, color: Color(0xFFF1F4F9)),
           const SizedBox(height: 24),
           
           // Sign Out Button

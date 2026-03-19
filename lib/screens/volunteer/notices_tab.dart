@@ -73,28 +73,34 @@ class NoticesTab extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Notices',
-                            style: GoogleFonts.dmSans(
-                              color: _C.textPri,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.3,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Notices',
+                              style: GoogleFonts.dmSans(
+                                color: _C.textPri,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.3,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                          ),
-                          Text(
-                            'Important updates regarding your tasks',
-                            style: GoogleFonts.dmSans(
-                              color: _C.textSec,
-                              fontSize: 12,
+                            Text(
+                              'Important updates regarding your tasks',
+                              style: GoogleFonts.dmSans(
+                                color: _C.textSec,
+                                fontSize: 12,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                      const Spacer(),
+                      const SizedBox(width: 12),
                       ProfileButton(currentUser: currentUser),
                     ],
                   ),

@@ -581,28 +581,35 @@ class _Header extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Dashboard',
-                      style: GoogleFonts.dmSans(
-                        color: _C.textPri,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.3,
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Dashboard',
+                        style: GoogleFonts.dmSans(
+                          color: _C.textPri,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.3,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                    Text(
-                      'Admin',
-                      style: GoogleFonts.dmSans(
-                        color: _C.textSec,
-                        fontSize: 12,
+                      Text(
+                        'Admin',
+                        style: GoogleFonts.dmSans(
+                          color: _C.textSec,
+                          fontSize: 12,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-                const Spacer(),
+                const SizedBox(width: 8),
                 // Date pill
                 Container(
                   padding: const EdgeInsets.symmetric(
