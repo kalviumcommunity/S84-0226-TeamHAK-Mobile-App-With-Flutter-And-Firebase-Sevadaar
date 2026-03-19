@@ -432,11 +432,18 @@ class _ChatRoomScreenState extends ConsumerState<ChatRoomScreen> {
       ),
       child: SafeArea(
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment
+              .end, // aligns send button to bottom when text grows
           children: [
             Expanded(
               child: TextField(
                 controller: _messageController,
                 textCapitalization: TextCapitalization.sentences,
+                maxLines: null, // ← allows vertical growth
+                minLines: 1, // ← starts as single line
+                keyboardType: TextInputType.multiline, // ← multiline keyboard
+                textInputAction:
+                    TextInputAction.newline, // ← Enter adds new line
                 decoration: InputDecoration(
                   hintText: 'Type a message...',
                   hintStyle: const TextStyle(color: _C.textSec),
