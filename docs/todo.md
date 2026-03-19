@@ -6,7 +6,6 @@
 3. I want that the signout button should be removed from the bottom and instead I want a profile Icon button to be appear on top right corner on every page for every role In that I can manage my profile change name, etc. and on the bottom of it I have signout option. tha's how I will signout.
 
 ### Assigned to Kartikay
-1. When superadmin promotes someone(volunteer) than he should get a notification related to that which says you have been promoted to admin for this NGO. 
-2. Currently I have two bottom bars named invites and NGO tasks. What I want to do is I want to make it as a one button which will be NGO tasks only here In default view I will only assigned ongoing tasks and new tasks invitations. 
-3. when as a super admin I try to create a new NGO then I got some error in the button named something like bottom error like it says pixel overflows by 19 pixel like this error i saw or something yellow and black color panel error in the close button pls check that also.
+1. Currently I have two bottom bars named invites and NGO tasks. What I want to do is I want to make it as a one button which will be NGO tasks only here In default view I will only assigned ongoing tasks and new tasks invitations. 
+2. when as a super admin I try to create a new NGO then I got some error in the button named something like bottom error like it says pixel overflows by 19 pixel like this error i saw or something yellow and black color panel error in the close button pls check that also.
 
