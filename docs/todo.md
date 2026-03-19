@@ -3,7 +3,6 @@
 
 ### Assigned to Avinash
 1. the issue is when I am login as a new uer and I register my NGO then when the dev admin approves/rejects it I am unable to see the effect directly in the superadmin dashboard. If I want to see effect than I have to logout and login to see the super admin panel. They should get a notification also that their NGO is approved/rejected. 
-2. In the superadmin add the chat section so that he can click on any member/admins and chat with them directly. 
 3. I want that the signout button should be removed from the bottom and instead I want a profile Icon button to be appear on top right corner on every page for every role In that I can manage my profile change name, etc. and on the bottom of it I have signout option. tha's how I will signout.
 
 ### Assigned to Kartikay
