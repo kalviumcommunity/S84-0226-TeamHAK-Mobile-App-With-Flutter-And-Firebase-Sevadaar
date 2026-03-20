@@ -505,8 +505,6 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard>
                           Clipboard.setData(
                             ClipboardData(text: ngos[i].joinCode),
                           );
-                          // Close the sheet first, then show the snackbar so it
-                          // is never obscured by the modal overlay.
                           Navigator.pop(ctx);
                           Future.microtask(() {
                             if (!context.mounted) return;
@@ -542,9 +540,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard>
                             );
                           });
                         },
-                        // ── NEW: delete callback ──────────────────────────
                         onDelete: () async {
-                          // Close the sheet first so the dialog can show cleanly
                           Navigator.pop(ctx);
                           await Future.delayed(
                             const Duration(milliseconds: 180),
@@ -621,7 +617,6 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard>
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Warning banner
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(14),
@@ -760,7 +755,6 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard>
                         const SizedBox(width: 10),
                         Expanded(
                           child: ElevatedButton(
-                            // Only enabled when name matches
                             onPressed: nameMatches
                                 ? () => Navigator.pop(ctx, true)
                                 : null,
@@ -811,7 +805,6 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard>
     if (confirmed != true) return;
 
     if (!mounted) return;
-    // Show a loading snack while deleting
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -835,7 +828,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard>
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        duration: const Duration(seconds: 10), // will be replaced on completion
+        duration: const Duration(seconds: 10),
       ),
     );
 
@@ -892,9 +885,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard>
             slivers: [
               SliverPersistentHeader(
                 floating: true,
-                delegate: _AppBarDelegate(
-                  uid: uid,
-                ),
+                delegate: _AppBarDelegate(uid: uid),
               ),
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
@@ -1392,12 +1383,12 @@ class _ActionCardState extends State<_ActionCard> {
   }
 }
 
-// ─── NGO Card (updated with Delete button) ───────────────────────────────────
+// ─── NGO Card ─────────────────────────────────────────────────────────────────
 class _NgoCard extends StatelessWidget {
   final dynamic ngo;
   final String uid;
   final BuildContext parentContext;
-  final VoidCallback onManage, onCopy, onDelete; // ← onDelete added
+  final VoidCallback onManage, onCopy, onDelete;
 
   const _NgoCard({
     required this.ngo,
@@ -1405,7 +1396,7 @@ class _NgoCard extends StatelessWidget {
     required this.parentContext,
     required this.onManage,
     required this.onCopy,
-    required this.onDelete, // ← added
+    required this.onDelete,
   });
 
   @override
@@ -1550,13 +1541,13 @@ class _NgoCard extends StatelessWidget {
             ),
           ),
           Container(height: 1, color: _AppColors.border),
-          // ── Action row (3 buttons now) ──────────────────────────────────
+          // ── FIX: all three wrapped in Expanded with flex ratios ──────────
           Padding(
             padding: const EdgeInsets.all(14),
             child: Row(
               children: [
                 Expanded(
-                  flex: 2,
+                  flex: 5,
                   child: _SheetBtn(
                     label: 'Manage Members',
                     icon: Icons.people_rounded,
@@ -1567,6 +1558,7 @@ class _NgoCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
+                  flex: 4,
                   child: _SheetBtn(
                     label: 'Copy Code',
                     icon: Icons.copy_rounded,
@@ -1576,14 +1568,16 @@ class _NgoCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                // ── Delete button ───────────────────────────────────────
-                _SheetBtn(
-                  label: '',
-                  icon: Icons.delete_forever_rounded,
-                  color: _AppColors.red,
-                  bg: _AppColors.redLight,
-                  onTap: onDelete,
-                  iconOnly: true,
+                Expanded(
+                  flex: 2,
+                  child: _SheetBtn(
+                    label: '',
+                    icon: Icons.delete_forever_rounded,
+                    color: _AppColors.red,
+                    bg: _AppColors.redLight,
+                    onTap: onDelete,
+                    iconOnly: true,
+                  ),
                 ),
               ],
             ),
@@ -1669,13 +1663,13 @@ class _BottomSheet extends StatelessWidget {
   }
 }
 
-// ─── Sheet Button (updated to support icon-only mode) ────────────────────────
+// ─── Sheet Button ─────────────────────────────────────────────────────────────
 class _SheetBtn extends StatefulWidget {
   final String label;
   final IconData icon;
   final Color color, bg;
   final VoidCallback onTap;
-  final bool iconOnly; // ← new
+  final bool iconOnly;
 
   const _SheetBtn({
     required this.label,
@@ -1720,13 +1714,17 @@ class _SheetBtnState extends State<_SheetBtn> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(widget.icon, size: 15, color: widget.color),
-                    const SizedBox(width: 7),
-                    Text(
-                      widget.label,
-                      style: GoogleFonts.dmSans(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: widget.color,
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        widget.label,
+                        style: GoogleFonts.dmSans(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: widget.color,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
                       ),
                     ),
                   ],
@@ -2004,7 +2002,7 @@ class _AppBarDelegate extends SliverPersistentHeaderDelegate {
           ),
           const SizedBox(width: 8),
           if (uid.isNotEmpty)
-          StreamBuilder<UserModel?>(
+            StreamBuilder<UserModel?>(
               stream: UserService().streamUser(uid),
               builder: (context, snapshot) {
                 if (!snapshot.hasData || snapshot.data == null) {
