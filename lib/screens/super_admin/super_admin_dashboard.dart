@@ -217,16 +217,18 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard>
   void _showJoinCodeSheet(String ngoName, String joinCode) {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
         decoration: const BoxDecoration(
           color: _AppColors.surface,
           borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         ),
-        padding: const EdgeInsets.fromLTRB(24, 16, 24, 36),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 36),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
             _SheetHandle(),
             const SizedBox(height: 24),
             Container(
@@ -348,8 +350,9 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard>
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   // ─── My NGOs Sheet ───────────────────────────────────────────────────────
   Future<void> _showMyNgosSheet() async {
@@ -549,6 +552,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard>
                           await _confirmAndDeleteNgo(
                             ngoId: ngos[i].ngoId,
                             ngoName: ngos[i].name,
+                            totalNgos: ngos.length,
                           );
                         },
                       ),
@@ -567,7 +571,134 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard>
   Future<void> _confirmAndDeleteNgo({
     required String ngoId,
     required String ngoName,
+    required int totalNgos,
   }) async {
+    if (totalNgos <= 1) {
+      final proceed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          backgroundColor: _AppColors.surface,
+          contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+          titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: _AppColors.redLight,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.warning_rounded,
+                  color: _AppColors.red,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  'Account Demotion Warning',
+                  style: GoogleFonts.dmSans(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 18,
+                    color: _AppColors.textPrimary,
+                    height: 1.2,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF7ED), // Soft amber background
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: const Color(0xFFF9A8D4), // Amber border
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Deleting your last remaining NGO has major consequences:',
+                  style: GoogleFonts.dmSans(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF9A3412),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '• Your Super Admin privileges will be instantly revoked.\n• Your account will be demoted to a standard Volunteer.\n• You will permanently lose access to this dashboard.',
+                  style: GoogleFonts.dmSans(
+                    fontSize: 13,
+                    color: const Color(0xFF9A3412).withValues(alpha: 0.9),
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+          actions: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                OutlinedButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _AppColors.textSecondary,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    side: const BorderSide(color: _AppColors.border),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    'Cancel Deletion',
+                    style: GoogleFonts.dmSans(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _AppColors.red,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    'I Understand, Proceed to Delete',
+                    style: GoogleFonts.dmSans(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+
+      if (proceed != true) return;
+    }
+
+    if (!mounted) return;
+
     final nameCtrl = TextEditingController();
 
     final confirmed = await showDialog<bool>(
@@ -638,7 +769,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard>
                               color: _AppColors.red,
                             ),
                           ),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 12),
                           Text(
                             'Deleting "$ngoName" will permanently erase:',
                             style: GoogleFonts.dmSans(
@@ -1608,13 +1739,13 @@ class _BottomSheet extends StatelessWidget {
         color: _AppColors.surface,
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      padding: EdgeInsets.fromLTRB(
-        24,
-        16,
-        24,
-        MediaQuery.of(context).viewInsets.bottom + 28,
-      ),
       child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(
+          24,
+          16,
+          24,
+          MediaQuery.of(context).viewInsets.bottom + 28,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
@@ -1828,6 +1959,8 @@ class _PrimaryBtn extends StatelessWidget {
               )
             : Text(
                 label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.dmSans(
                   fontWeight: FontWeight.w700,
                   fontSize: 15,
@@ -1860,6 +1993,8 @@ class _OutlineBtn extends StatelessWidget {
         ),
         child: Text(
           label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: GoogleFonts.dmSans(fontWeight: FontWeight.w600, fontSize: 15),
         ),
       ),
