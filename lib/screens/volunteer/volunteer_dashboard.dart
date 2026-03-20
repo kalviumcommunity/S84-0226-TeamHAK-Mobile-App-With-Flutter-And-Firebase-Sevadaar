@@ -164,24 +164,6 @@ class _VolunteerDashboardState extends State<VolunteerDashboard>
         body: FadeTransition(opacity: _fadeAnim, child: _buildBody()),
         bottomNavigationBar: _BottomNav(
           selected: _selectedTab,
-          inviteBadge: _currentUser != null
-              ? StreamBuilder<List<TaskModel>>(
-                  stream: _taskService.streamVolunteerInvites(
-                    _currentUser!.uid,
-                    ngoId: _currentUser!.ngoId,
-                  ),
-                  builder: (_, snap) => (snap.data ?? []).isNotEmpty
-                      ? Container(
-                          width: 7,
-                          height: 7,
-                          decoration: const BoxDecoration(
-                            color: _C.red,
-                            shape: BoxShape.circle,
-                          ),
-                        )
-                      : const SizedBox.shrink(),
-                )
-              : null,
           ngoTasksBadge:
               _currentUser != null &&
                   _currentUser!.ngoId != null &&
@@ -190,15 +172,16 @@ class _VolunteerDashboardState extends State<VolunteerDashboard>
                   stream: _taskService.streamNgoTasks(_currentUser!.ngoId!),
                   builder: (_, snap) {
                     final uid = _currentUser!.uid;
-                    final open = (snap.data ?? [])
-                        .where(
-                          (t) =>
-                              t.status == 'inviting' &&
+                    final tasks = snap.data ?? [];
+                    final hasInvitesOrOpen = tasks.any(
+                      (t) =>
+                          (t.pendingInvites.contains(uid)) ||
+                          (t.status == 'inviting' &&
                               !t.assignedVolunteers.contains(uid) &&
-                              !t.declinedBy.contains(uid),
-                        )
-                        .toList();
-                    return open.isNotEmpty
+                              !t.declinedBy.contains(uid)),
+                    );
+
+                    return hasInvitesOrOpen
                         ? Container(
                             width: 7,
                             height: 7,
@@ -272,18 +255,13 @@ class _VolunteerDashboardState extends State<VolunteerDashboard>
     }
     switch (_selectedTab) {
       case 1:
-        return _InvitesTab(
-          currentUser: _currentUser!,
-          taskService: _taskService,
-        );
-      case 2:
         return _NgoTasksTab(
           currentUser: _currentUser!,
           taskService: _taskService,
         );
-      case 3:
+      case 2:
         return ChatListScreen(currentUser: _currentUser!);
-      case 4:
+      case 3:
         return NoticesTab(currentUser: _currentUser!);
       default:
         return _TasksTab(
@@ -293,21 +271,17 @@ class _VolunteerDashboardState extends State<VolunteerDashboard>
         );
     }
   }
-
-
 }
 
 // ─── Bottom Nav ───────────────────────────────────────────────────────────────
 class _BottomNav extends StatelessWidget {
   final int selected;
   final ValueChanged<int> onTab;
-  final Widget? inviteBadge;
   final Widget? ngoTasksBadge;
   final Widget? chatBadge;
   const _BottomNav({
     required this.selected,
     required this.onTab,
-    this.inviteBadge,
     this.ngoTasksBadge,
     this.chatBadge,
   });
@@ -338,31 +312,24 @@ class _BottomNav extends StatelessWidget {
                 onTap: () => onTab(0),
               ),
               _NavItem(
-                icon: Icons.mail_outline_rounded,
-                label: 'Invites',
-                selected: selected == 1,
-                onTap: () => onTab(1),
-                badge: inviteBadge,
-              ),
-              _NavItem(
                 icon: Icons.business_rounded,
                 label: 'NGO Tasks',
-                selected: selected == 2,
-                onTap: () => onTab(2),
+                selected: selected == 1,
+                onTap: () => onTab(1),
                 badge: ngoTasksBadge,
               ),
               _NavItem(
                 icon: Icons.chat_bubble_outline_rounded,
                 label: 'Messages',
-                selected: selected == 3,
-                onTap: () => onTab(3),
+                selected: selected == 2,
+                onTap: () => onTab(2),
                 badge: chatBadge,
               ),
               _NavItem(
                 icon: Icons.notifications_active_rounded,
                 label: 'Notices',
-                selected: selected == 4,
-                onTap: () => onTab(4),
+                selected: selected == 3,
+                onTap: () => onTab(3),
               ),
             ],
           ),
@@ -474,12 +441,20 @@ class _TasksTabState extends State<_TasksTab> {
         final allTasks = (snap.data ?? [])
           ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-        final active = allTasks.where((t) => t.status == 'active').length;
+        final active = allTasks
+            .where((t) => t.status == 'active' || t.status == 'inviting')
+            .length;
         final completed = allTasks.where((t) => t.status == 'completed').length;
 
         final tasks = _filter == null
             ? allTasks
-            : allTasks.where((t) => t.status == _filter).toList();
+            : (_filter == 'active'
+                  ? allTasks
+                        .where(
+                          (t) => t.status == 'active' || t.status == 'inviting',
+                        )
+                        .toList()
+                  : allTasks.where((t) => t.status == _filter).toList());
 
         return CustomScrollView(
           physics: const BouncingScrollPhysics(
@@ -1687,309 +1662,7 @@ class _UpdateProgressButton extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// TAB 2 — INVITATIONS
-// ═══════════════════════════════════════════════════════════════════════════════
-class _InvitesTab extends StatelessWidget {
-  final UserModel currentUser;
-  final TaskService taskService;
-  const _InvitesTab({required this.currentUser, required this.taskService});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SafeArea(
-          bottom: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Invitations',
-                      style: GoogleFonts.dmSans(
-                        color: _C.textPri,
-                        fontSize: 28,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    Text(
-                      'Review task invitations from your admin',
-                      style: GoogleFonts.dmSans(color: _C.textSec, fontSize: 13),
-                    ),
-                  ],
-                ),
-                ProfileButton(currentUser: currentUser),
-              ],
-            ),
-          ),
-        ),
-        Expanded(
-          child: StreamBuilder<List<TaskModel>>(
-            stream: taskService.streamVolunteerInvites(
-              currentUser.uid,
-              ngoId: currentUser.ngoId,
-            ),
-            builder: (context, snap) {
-              if (snap.connectionState == ConnectionState.waiting) {
-                return const Center(child: _PulseLoader());
-              }
-              if (snap.hasError) {
-                return const _EmptyState(
-                  icon: Icons.error_outline_rounded,
-                  message: 'Error loading invitations.',
-                );
-              }
-
-              final invites = (snap.data ?? [])
-                ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-
-              if (invites.isEmpty) {
-                return const _EmptyState(
-                  icon: Icons.mail_outline_rounded,
-                  message: 'All clear!\nNo pending invitations.',
-                );
-              }
-
-              return ListView.builder(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 120),
-                physics: const BouncingScrollPhysics(
-                  parent: AlwaysScrollableScrollPhysics(),
-                ),
-                itemCount: invites.length,
-                itemBuilder: (_, i) => _InviteCard(
-                  task: invites[i],
-                  volunteerId: currentUser.uid,
-                  taskService: taskService,
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ─── Invite Card ──────────────────────────────────────────────────────────────
-class _InviteCard extends StatefulWidget {
-  final TaskModel task;
-  final String volunteerId;
-  final TaskService taskService;
-  const _InviteCard({
-    required this.task,
-    required this.volunteerId,
-    required this.taskService,
-  });
-
-  @override
-  State<_InviteCard> createState() => _InviteCardState();
-}
-
-class _InviteCardState extends State<_InviteCard> {
-  bool _loading = false;
-
-  Future<void> _accept() async {
-    setState(() => _loading = true);
-    try {
-      await _withNetworkTimeout(
-        widget.taskService.acceptInvite(widget.task.taskId, widget.volunteerId),
-      );
-      if (mounted) {
-        _snack(
-          context,
-          'Joined "${widget.task.title}"!',
-          _C.green,
-          Icons.check_circle_rounded,
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        _snack(context, 'Failed to accept.', _C.red, Icons.error_rounded);
-      }
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _decline() async {
-    setState(() => _loading = true);
-    try {
-      await _withNetworkTimeout(
-        widget.taskService.declineInvite(
-          widget.task.taskId,
-          widget.volunteerId,
-        ),
-      );
-      if (mounted) {
-        _snack(
-          context,
-          'Declined invitation.',
-          _C.textSec,
-          Icons.remove_circle_rounded,
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        _snack(context, 'Failed to decline.', _C.red, Icons.error_rounded);
-      }
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final task = widget.task;
-    final urgency = _urgencyColor(task.createdAt, task.deadline);
-    final daysLeft = task.deadline.difference(DateTime.now()).inDays;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _C.orange.withValues(alpha: 0.25)),
-        boxShadow: [
-          BoxShadow(
-            color: _C.orange.withValues(alpha: 0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Orange urgency strip
-            Container(
-              width: 4,
-              decoration: BoxDecoration(
-                color: _C.orange,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(20),
-                  bottomLeft: Radius.circular(20),
-                ),
-              ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            task.title,
-                            style: GoogleFonts.dmSans(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: _C.textPri,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        _Chip(label: 'INVITE', color: _C.orange),
-                      ],
-                    ),
-                    const SizedBox(height: 5),
-                    if (task.description.isNotEmpty)
-                      Text(
-                        task.description,
-                        style: GoogleFonts.dmSans(
-                          fontSize: 12,
-                          color: _C.textSec,
-                          height: 1.4,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.people_outline_rounded,
-                          size: 13,
-                          color: _C.textTer,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${task.assignedVolunteers.length}/${task.maxVolunteers}',
-                          style: GoogleFonts.dmSans(
-                            color: _C.textSec,
-                            fontSize: 11,
-                          ),
-                        ),
-                        const Spacer(),
-                        const Icon(
-                          Icons.schedule_outlined,
-                          size: 13,
-                          color: _C.textTer,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          daysLeft < 0
-                              ? 'Overdue'
-                              : daysLeft == 0
-                              ? 'Today'
-                              : '${daysLeft}d left',
-                          style: GoogleFonts.dmSans(
-                            color: urgency,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    if (_loading)
-                      const Center(child: _PulseLoader())
-                    else
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _OutlineActionBtn(
-                              label: 'Decline',
-                              icon: Icons.close_rounded,
-                              color: _C.red,
-                              onTap: _decline,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            flex: 2,
-                            child: _FilledActionBtn(
-                              label: 'Accept',
-                              icon: Icons.check_rounded,
-                              color: _C.green,
-                              onTap: _accept,
-                            ),
-                          ),
-                        ],
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// TAB 3 — NGO TASKS
+// TAB 2 — NGO TASKS
 // ═══════════════════════════════════════════════════════════════════════════════
 class _NgoTasksTab extends StatefulWidget {
   final UserModel currentUser;
@@ -2037,7 +1710,10 @@ class _NgoTasksTabState extends State<_NgoTasksTab> {
                     ),
                     Text(
                       'Browse and join tasks from your NGO',
-                      style: GoogleFonts.dmSans(color: _C.textSec, fontSize: 13),
+                      style: GoogleFonts.dmSans(
+                        color: _C.textSec,
+                        fontSize: 13,
+                      ),
                     ),
                   ],
                 ),
@@ -2087,8 +1763,24 @@ class _NgoTasksTabState extends State<_NgoTasksTab> {
                   .where((t) => t.status == 'completed')
                   .length;
 
+              final uid = widget.currentUser.uid;
               final tasks = _filter == null
-                  ? allTasks
+                  ? allTasks.where((t) {
+                      final isInvitedExplicitly = t.pendingInvites.contains(
+                        uid,
+                      );
+                      final isOpenInvite =
+                          t.status == 'inviting' &&
+                          !t.assignedVolunteers.contains(uid) &&
+                          !t.declinedBy.contains(uid);
+
+                      final isAssigned = t.assignedVolunteers.contains(uid);
+                      final isNotCompleted = t.status != 'completed';
+
+                      return isInvitedExplicitly ||
+                          isOpenInvite ||
+                          (isAssigned && isNotCompleted);
+                    }).toList()
                   : allTasks.where((t) => t.status == _filter).toList();
 
               return Column(
@@ -2820,4 +2512,3 @@ class _PulseLoader extends StatelessWidget {
   Widget build(BuildContext context) =>
       const CircularProgressIndicator(color: _C.blue, strokeWidth: 2.5);
 }
-
