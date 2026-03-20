@@ -230,7 +230,41 @@ class NgoService {
         final chunk = membersSnap.docs.skip(i).take(chunkSize);
         final batch = _db.batch();
         for (final doc in chunk) {
-          batch.update(doc.reference, {'ngoId': '', 'role': 'volunteer'});
+          final data = doc.data();
+          final userRole = data['role'] as String? ?? 'volunteer';
+          final uid = doc.id;
+
+          if (userRole == 'super_admin') {
+            final otherNgosSnap = await _db
+                .collection('ngos')
+                .where('superAdminId', isEqualTo: uid)
+                .where(FieldPath.documentId, isNotEqualTo: ngoId)
+                .limit(1)
+                .get();
+
+            if (otherNgosSnap.docs.isNotEmpty) {
+              // Stay super_admin, switch to remaining NGO
+              final otherNgoId = otherNgosSnap.docs.first.id;
+              batch.update(doc.reference, {
+                'ngoId': otherNgoId,
+                'orgId': otherNgoId,
+              });
+            } else {
+               // Demote to volunteer, clear NGO
+               batch.update(doc.reference, {
+                 'ngoId': '',
+                 'orgId': '',
+                 'role': 'volunteer',
+               });
+            }
+          } else {
+            // General volunteer/admin members
+            batch.update(doc.reference, {
+              'ngoId': '',
+              'orgId': '',
+              'role': 'volunteer',
+            });
+          }
         }
         await batch.commit();
       }
