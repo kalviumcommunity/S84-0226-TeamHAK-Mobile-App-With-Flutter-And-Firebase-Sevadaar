@@ -12,7 +12,7 @@ import '../../services/ngo_service.dart';
 import '../../services/task_service.dart';
 import '../../state/chat_provider.dart';
 import '../chat/chat_list_screen.dart';
-import 'notices_tab.dart';
+import '../shared/notifications_tab.dart';
 import '../../widgets/profile_button.dart';
 
 // ─── Design Tokens (matches admin dashboard) ─────────────────────────────────
@@ -262,7 +262,7 @@ class _VolunteerDashboardState extends State<VolunteerDashboard>
       case 2:
         return ChatListScreen(currentUser: _currentUser!);
       case 3:
-        return NoticesTab(currentUser: _currentUser!);
+        return NotificationsTab(currentUser: _currentUser!);
       default:
         return _TasksTab(
           currentUser: _currentUser!,

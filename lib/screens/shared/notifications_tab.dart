@@ -14,15 +14,63 @@ class _C {
   static const blue = Color(0xFF3B82F6);
 }
 
-class NotificationsTab extends StatelessWidget {
+class NotificationsTab extends StatefulWidget {
   final UserModel currentUser;
 
   const NotificationsTab({super.key, required this.currentUser});
 
+  @override
+  State<NotificationsTab> createState() => _NotificationsTabState();
+}
+
+class _NotificationsTabState extends State<NotificationsTab> {
+  @override
+  void initState() {
+    super.initState();
+    _cleanupOldNotifications();
+  }
+
+  /// Automatically deletes notifications older than 7 days from Firebase
+  Future<void> _cleanupOldNotifications() async {
+    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+    try {
+      // Query without inequality to avoid composite index requirement,
+      // we just filter manually for deletion
+      final snap = await FirebaseFirestore.instance
+          .collection('notifications')
+          .where('recipientUid', isEqualTo: widget.currentUser.uid)
+          .get();
+
+      if (snap.docs.isEmpty) return;
+
+      final batch = FirebaseFirestore.instance.batch();
+      int deleteCount = 0;
+
+      for (var doc in snap.docs) {
+        final data = doc.data();
+        if (data['createdAt'] != null) {
+          final createdAt = (data['createdAt'] as Timestamp).toDate();
+          // If it's strictly older than 7 days
+          if (createdAt.isBefore(sevenDaysAgo)) {
+            batch.delete(doc.reference);
+            deleteCount++;
+          }
+        }
+      }
+
+      if (deleteCount > 0) {
+        await batch.commit();
+        debugPrint('Cleaned up $deleteCount old notifications');
+      }
+    } catch (e) {
+      debugPrint('Error cleaning up notifications: $e');
+    }
+  }
+
   Stream<List<NotificationModel>> _streamNotifications() {
     return FirebaseFirestore.instance
         .collection('notifications')
-        .where('recipientUid', isEqualTo: currentUser.uid)
+        .where('recipientUid', isEqualTo: widget.currentUser.uid)
         .snapshots()
         .map((snap) {
           final list = snap.docs
@@ -31,6 +79,21 @@ class NotificationsTab extends StatelessWidget {
           list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
           return list;
         });
+  }
+
+  String _getSectionTitle(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final targetDate = DateTime(date.year, date.month, date.day);
+
+    if (targetDate == today) {
+      return 'Today';
+    } else if (targetDate == yesterday) {
+      return 'Yesterday';
+    } else {
+      return DateFormat('MMM d, yyyy').format(targetDate);
+    }
   }
 
   @override
@@ -57,7 +120,7 @@ class NotificationsTab extends StatelessWidget {
                 ),
               ),
             ),
-            
+
             // List
             Expanded(
               child: StreamBuilder<List<NotificationModel>>(
@@ -76,16 +139,26 @@ class NotificationsTab extends StatelessWidget {
                     );
                   }
 
-                  final notifications = snapshot.data ?? [];
+                  // 1. Get raw list
+                  final rawList = snapshot.data ?? [];
+
+                  // 2. Filter out items older than 7 days (in case cleanup hasn't completed yet)
+                  final sevenDaysAgo = DateTime.now().subtract(
+                    const Duration(days: 7),
+                  );
+                  final notifications = rawList.where((n) {
+                    return n.createdAt.isAfter(sevenDaysAgo);
+                  }).toList();
+
                   if (notifications.isEmpty) {
                     return Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
-                            Icons.notifications_none_rounded, 
-                            size: 64, 
-                            color: _C.textSec.withValues(alpha: 0.5)
+                            Icons.notifications_none_rounded,
+                            size: 64,
+                            color: _C.textSec.withValues(alpha: 0.5),
                           ),
                           const SizedBox(height: 16),
                           Text(
@@ -106,13 +179,61 @@ class NotificationsTab extends StatelessWidget {
                     );
                   }
 
-                  return ListView.separated(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                    itemCount: notifications.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 16),
-                    itemBuilder: (context, i) {
-                      final notif = notifications[i];
-                      return _NotificationCard(notification: notif);
+                  // 3. Group by date section
+                  final grouped = <String, List<NotificationModel>>{};
+                  for (var notif in notifications) {
+                    final title = _getSectionTitle(notif.createdAt);
+                    grouped.putIfAbsent(title, () => []).add(notif);
+                  }
+
+                  // 4. Ensure order of sections (Today first, then Yesterday, then older)
+                  final sortedKeys = grouped.keys.toList()
+                    ..sort((a, b) {
+                      // Extract a date value from the title to sort appropriately
+                      DateTime dateA = grouped[a]!.first.createdAt;
+                      DateTime dateB = grouped[b]!.first.createdAt;
+                      return dateB.compareTo(dateA); // descending
+                    });
+
+                  return ListView.builder(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 8,
+                    ),
+                    itemCount: sortedKeys.length,
+                    itemBuilder: (context, index) {
+                      final sectionKey = sortedKeys[index];
+                      final items = grouped[sectionKey]!;
+
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Theme(
+                          data: Theme.of(context).copyWith(
+                            dividerColor: Colors.transparent,
+                            splashColor: Colors.transparent,
+                            highlightColor: Colors.transparent,
+                          ),
+                          child: ExpansionTile(
+                            tilePadding: EdgeInsets.zero,
+                            childrenPadding: const EdgeInsets.only(bottom: 8),
+                            initiallyExpanded: sectionKey == 'Today',
+                            title: Text(
+                              sectionKey,
+                              style: GoogleFonts.dmSans(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: _C.textPri,
+                              ),
+                            ),
+                            children: items.map((notif) {
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: _NotificationCard(notification: notif),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      );
                     },
                   );
                 },
@@ -172,10 +293,7 @@ class _NotificationCard extends StatelessWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: bgColor,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: bgColor, shape: BoxShape.circle),
             child: Icon(icon, color: iconColor, size: 24),
           ),
           const SizedBox(width: 16),
@@ -197,7 +315,9 @@ class _NotificationCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      DateFormat('MMM d, h:mm a').format(notification.createdAt),
+                      DateFormat(
+                        'MMM d, h:mm a',
+                      ).format(notification.createdAt),
                       style: GoogleFonts.dmSans(
                         fontSize: 12,
                         color: _C.textSec,
