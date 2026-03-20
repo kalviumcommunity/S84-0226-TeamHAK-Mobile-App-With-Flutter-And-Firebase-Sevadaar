@@ -13,6 +13,7 @@ import '../../services/task_service.dart';
 import '../../services/user_service.dart';
 import '../../state/chat_provider.dart';
 import '../chat/chat_list_screen.dart';
+import '../shared/notifications_tab.dart';
 import 'create_task_screen.dart';
 import 'task_detail_screen.dart';
 import '../../widgets/profile_button.dart';
@@ -39,7 +40,6 @@ class _C {
   // Borders / Dividers
   static const border = Color(0xFFE5E9F0);
   static const divider = Color(0xFFF1F4F9);
-
 }
 
 // ─── Urgency colour helper ────────────────────────────────────────────────────
@@ -132,10 +132,7 @@ class _AdminDashboardState extends State<AdminDashboard>
       child: Scaffold(
         backgroundColor: _C.bg,
         extendBody: true,
-        body: FadeTransition(
-          opacity: _fadeAnim,
-          child: _buildBody(),
-        ),
+        body: FadeTransition(opacity: _fadeAnim, child: _buildBody()),
         bottomNavigationBar: _BottomNav(
           selected: _selectedTab,
           pendingBadge: _currentUser != null
@@ -158,17 +155,22 @@ class _AdminDashboardState extends State<AdminDashboard>
           chatBadge: _currentUser != null && _currentUser!.ngoId != null
               ? Consumer(
                   builder: (context, ref, child) {
-                    final chatsAsync = ref.watch(userChatsProvider(ChatParams(
-                      uid: _currentUser!.uid,
-                      ngoId: _currentUser!.ngoId!,
-                    )));
+                    final chatsAsync = ref.watch(
+                      userChatsProvider(
+                        ChatParams(
+                          uid: _currentUser!.uid,
+                          ngoId: _currentUser!.ngoId!,
+                        ),
+                      ),
+                    );
                     return chatsAsync.maybeWhen(
                       data: (chats) {
                         int totalUnread = 0;
                         for (var c in chats) {
-                           if (!c.archivedBy.contains(_currentUser!.uid)) {
-                             totalUnread += (c.unreadCounts[_currentUser!.uid] ?? 0);
-                           }
+                          if (!c.archivedBy.contains(_currentUser!.uid)) {
+                            totalUnread +=
+                                (c.unreadCounts[_currentUser!.uid] ?? 0);
+                          }
                         }
                         if (totalUnread > 0) {
                           return Container(
@@ -236,11 +238,11 @@ class _AdminDashboardState extends State<AdminDashboard>
       );
     } else if (_selectedTab == 2) {
       return ChatListScreen(currentUser: _currentUser!);
+    } else if (_selectedTab == 3) {
+      return NotificationsTab(currentUser: _currentUser!);
     }
     return const SizedBox.shrink();
   }
-
-
 }
 
 // ─── Bottom Nav ───────────────────────────────────────────────────────────────
@@ -294,6 +296,12 @@ class _BottomNav extends StatelessWidget {
                 selected: selected == 2,
                 onTap: () => onTab(2),
                 badge: chatBadge,
+              ),
+              _NavItem(
+                icon: Icons.notifications_active_rounded,
+                label: 'Notices',
+                selected: selected == 3,
+                onTap: () => onTab(3),
               ),
             ],
           ),
@@ -436,8 +444,7 @@ class _TasksTabState extends State<_TasksTab> {
         }
         if (snap.hasError) {
           final err = snap.error.toString();
-          if (err.contains('failed-precondition') ||
-              err.contains('index')) {
+          if (err.contains('failed-precondition') || err.contains('index')) {
             return _EmptyState(
               icon: Icons.cloud_off_rounded,
               message:
@@ -454,7 +461,9 @@ class _TasksTabState extends State<_TasksTab> {
         final allTasks = (snap.data ?? [])
           ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-        final ongoingCount = allTasks.where((t) => t.status != 'completed').length;
+        final ongoingCount = allTasks
+            .where((t) => t.status != 'completed')
+            .length;
         final totalCount = allTasks.length;
 
         final tasks = _filter == null
@@ -797,7 +806,10 @@ class _Header extends StatelessWidget {
                     ),
                   ],
                   const SizedBox(height: 20),
-                  Container(height: 1, color: Colors.white.withValues(alpha: 0.12)),
+                  Container(
+                    height: 1,
+                    color: Colors.white.withValues(alpha: 0.12),
+                  ),
                   const SizedBox(height: 16),
                   Row(
                     children: [
@@ -1001,7 +1013,11 @@ class _TaskCard extends StatefulWidget {
   final TaskModel task;
   final VoidCallback onTap;
   final TaskService taskService;
-  const _TaskCard({required this.task, required this.onTap, required this.taskService});
+  const _TaskCard({
+    required this.task,
+    required this.onTap,
+    required this.taskService,
+  });
   @override
   State<_TaskCard> createState() => _TaskCardState();
 }
@@ -1030,8 +1046,11 @@ class _TaskCardState extends State<_TaskCard> {
   Widget build(BuildContext context) {
     final task = widget.task;
     final isCompleted = task.status == 'completed';
-    final urgency = isCompleted ? _C.green : taskUrgencyColor(task.createdAt, task.deadline);
-    final isExpiredInviting = task.status == 'inviting' &&
+    final urgency = isCompleted
+        ? _C.green
+        : taskUrgencyColor(task.createdAt, task.deadline);
+    final isExpiredInviting =
+        task.status == 'inviting' &&
         DateTime.now().isAfter(task.inviteDeadline);
     final (String chipLabel, Color chipColor) = isExpiredInviting
         ? ('EXPIRED', _C.orange)
@@ -1081,7 +1100,9 @@ class _TaskCardState extends State<_TaskCard> {
                 Container(
                   width: 4,
                   decoration: BoxDecoration(
-                    color: isCompleted ? _C.green : (isExpiredInviting ? _C.orange : urgency),
+                    color: isCompleted
+                        ? _C.green
+                        : (isExpiredInviting ? _C.orange : urgency),
                     borderRadius: const BorderRadius.only(
                       topLeft: Radius.circular(20),
                       bottomLeft: Radius.circular(20),
@@ -1128,7 +1149,11 @@ class _TaskCardState extends State<_TaskCard> {
                         if (isCompleted)
                           Row(
                             children: [
-                              const Icon(Icons.check_circle_rounded, size: 18, color: _C.green),
+                              const Icon(
+                                Icons.check_circle_rounded,
+                                size: 18,
+                                color: _C.green,
+                              ),
                               const SizedBox(width: 6),
                               Text(
                                 'Completed',
@@ -1141,56 +1166,56 @@ class _TaskCardState extends State<_TaskCard> {
                             ],
                           )
                         else ...[
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(6),
-                          child: LinearProgressIndicator(
-                            value: task.mainProgress / 100,
-                            backgroundColor: _C.border,
-                            valueColor: AlwaysStoppedAnimation(urgency),
-                            minHeight: 6,
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: LinearProgressIndicator(
+                              value: task.mainProgress / 100,
+                              backgroundColor: _C.border,
+                              valueColor: AlwaysStoppedAnimation(urgency),
+                              minHeight: 6,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.people_outline_rounded,
-                              size: 13,
-                              color: _C.textTer,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${task.assignedVolunteers.length}/${task.maxVolunteers}',
-                              style: GoogleFonts.dmSans(
-                                color: _C.textSec,
-                                fontSize: 11,
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.people_outline_rounded,
+                                size: 13,
+                                color: _C.textTer,
                               ),
-                            ),
-                            const Spacer(),
-                            Icon(
-                              Icons.schedule_outlined,
-                              size: 13,
-                              color: _C.textTer,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${task.deadline.day}/${task.deadline.month}/${task.deadline.year}',
-                              style: GoogleFonts.dmSans(
-                                color: _C.textSec,
-                                fontSize: 11,
+                              const SizedBox(width: 4),
+                              Text(
+                                '${task.assignedVolunteers.length}/${task.maxVolunteers}',
+                                style: GoogleFonts.dmSans(
+                                  color: _C.textSec,
+                                  fontSize: 11,
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              '${task.mainProgress.toStringAsFixed(0)}%',
-                              style: GoogleFonts.dmSans(
-                                color: urgency,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
+                              const Spacer(),
+                              Icon(
+                                Icons.schedule_outlined,
+                                size: 13,
+                                color: _C.textTer,
                               ),
-                            ),
-                          ],
-                        ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${task.deadline.day}/${task.deadline.month}/${task.deadline.year}',
+                                style: GoogleFonts.dmSans(
+                                  color: _C.textSec,
+                                  fontSize: 11,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                '${task.mainProgress.toStringAsFixed(0)}%',
+                                style: GoogleFonts.dmSans(
+                                  color: urgency,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
                         ],
                         // ── Invite timer / expired banner ──
                         if (task.status == 'inviting') ...[
@@ -1198,8 +1223,11 @@ class _TaskCardState extends State<_TaskCard> {
                           if (isExpiredInviting)
                             Row(
                               children: [
-                                Icon(Icons.warning_amber_rounded,
-                                    size: 13, color: _C.orange),
+                                Icon(
+                                  Icons.warning_amber_rounded,
+                                  size: 13,
+                                  color: _C.orange,
+                                ),
                                 const SizedBox(width: 4),
                                 Text(
                                   'Action required \u2014 Tap to resolve',
@@ -1212,27 +1240,32 @@ class _TaskCardState extends State<_TaskCard> {
                               ],
                             )
                           else
-                            Builder(builder: (_) {
-                              final remaining =
-                                  task.inviteDeadline.difference(DateTime.now());
-                              final hours = remaining.inHours;
-                              final minutes = remaining.inMinutes % 60;
-                              return Row(
-                                children: [
-                                  const Icon(Icons.timer_outlined,
-                                      size: 13, color: _C.blue),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    '${hours}h ${minutes}m left to accept invites',
-                                    style: GoogleFonts.dmSans(
+                            Builder(
+                              builder: (_) {
+                                final remaining = task.inviteDeadline
+                                    .difference(DateTime.now());
+                                final hours = remaining.inHours;
+                                final minutes = remaining.inMinutes % 60;
+                                return Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.timer_outlined,
+                                      size: 13,
                                       color: _C.blue,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w500,
                                     ),
-                                  ),
-                                ],
-                              );
-                            }),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      '${hours}h ${minutes}m left to accept invites',
+                                      style: GoogleFonts.dmSans(
+                                        color: _C.blue,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
                         ],
                       ],
                     ),
@@ -1276,8 +1309,11 @@ class _TaskCardState extends State<_TaskCard> {
                       color: _C.orange.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.timer_off_rounded,
-                        color: _C.orange, size: 18),
+                    child: const Icon(
+                      Icons.timer_off_rounded,
+                      color: _C.orange,
+                      size: 18,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -1304,10 +1340,7 @@ class _TaskCardState extends State<_TaskCard> {
               const SizedBox(height: 8),
               Text(
                 'What would you like to do?',
-                style: GoogleFonts.dmSans(
-                  color: _C.textSec,
-                  fontSize: 13,
-                ),
+                style: GoogleFonts.dmSans(color: _C.textSec, fontSize: 13),
               ),
               const SizedBox(height: 20),
               if (task.assignedVolunteers.isNotEmpty) ...[
@@ -1333,8 +1366,11 @@ class _TaskCardState extends State<_TaskCard> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.play_arrow_rounded,
-                            color: Colors.white, size: 16),
+                        const Icon(
+                          Icons.play_arrow_rounded,
+                          color: Colors.white,
+                          size: 16,
+                        ),
                         const SizedBox(width: 6),
                         Text(
                           'Continue with ${task.assignedVolunteers.length} volunteer${task.assignedVolunteers.length > 1 ? 's' : ''}',
@@ -1366,8 +1402,11 @@ class _TaskCardState extends State<_TaskCard> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.delete_outline_rounded,
-                          color: _C.red, size: 16),
+                      Icon(
+                        Icons.delete_outline_rounded,
+                        color: _C.red,
+                        size: 16,
+                      ),
                       const SizedBox(width: 6),
                       Text(
                         'Delete Task',
@@ -1461,7 +1500,10 @@ class _RequestsTab extends StatelessWidget {
                     ),
                     Text(
                       'Review volunteer progress updates',
-                      style: GoogleFonts.dmSans(color: _C.textSec, fontSize: 13),
+                      style: GoogleFonts.dmSans(
+                        color: _C.textSec,
+                        fontSize: 13,
+                      ),
                     ),
                   ],
                 ),
@@ -1592,7 +1634,10 @@ class _RequestCardState extends State<_RequestCard> {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: _C.border),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+          ),
         ],
       ),
       child: Column(
