@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Soft background typical for health/NGO apps -->
+  <rect width="1024" height="1024" fill="#F1F8E9" rx="200" />
+  
+  <!-- Outer leaf / hands wrapping around -->
+  <path d="M512 850 C 150 850, 150 400, 512 200 C 874 400, 874 850, 512 850 Z" fill="#4CAF50" />
+  
+  <!-- Inner leaf -->
+  <path d="M512 750 C 280 750, 280 450, 512 300 C 744 450, 744 750, 512 750 Z" fill="#81C784" />
+  
+  <!-- Sun / warmth / hope in the center -->
+  <circle cx="512" cy="520" r="100" fill="#FFC107" />
+  
+  <!-- Text -->
+  <text x="512" y="940" font-family="sans-serif" font-size="70" font-weight="bold" fill="#1B5E20" text-anchor="middle" letter-spacing="4">SEVADAAR</text>
+</svg>
