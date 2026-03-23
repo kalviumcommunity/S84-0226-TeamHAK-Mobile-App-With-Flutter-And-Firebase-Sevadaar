@@ -63,3 +63,22 @@ Admin can see ALL tasks.
 Volunteers can see only their tasks.
 
 ---
+
+# 📋 Task Workflow
+
+Sevadaar workflow:
+
+Created → Assigned → In Progress → Completed → Approved
+
+Admin controls:
+
+Created
+Assigned
+Approved
+
+Volunteer controls:
+
+In Progress
+Completed
+
+---
