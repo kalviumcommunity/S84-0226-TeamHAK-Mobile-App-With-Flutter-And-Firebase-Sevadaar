@@ -1,297 +1,125 @@
-# 🌍 Sevadaar – Volunteer Coordination System
+# 🌍 Sevadaar
 
-A modern, structured **Flutter + Firebase** mobile application designed to streamline NGO volunteer task management through real-time workflow tracking and admin approval.
+https://github.com/user-attachments/assets/7c5a48af-4af0-4e19-b2c9-14fb01bd8952
 
-> 🤝 Empowering service through technology
-> 📊 Bringing structure to volunteer coordination
-> ⚡ Delivering real-time impact
 
----
 
-## Demo Video (https://drive.google.com/file/d/1kmzesAmqtLM-ar331XvIPMHrDFCRl-F4/view?usp=sharing)
+**A robust, real-time NGO Task & Volunteer Management System built to empower non-profits with automated workflows, transparent task delegation, and centralized communication.**
 
-# 🚀 Features
+> 🤝 *Empowering service through technology*   
+> 📊 *Bringing structure to volunteer coordination*   
+> ⚡ *Delivering real-time impact*
 
-## 🧩 Core Functionality
-
-✅ 👤 Role-Based Authentication (Admin & Volunteer)
-✅ 📝 Task Creation & Assignment
-✅ 🔄 Structured Workflow Management
-✅ 🛡 Admin Approval Before Final Completion
-✅ 🔥 Real-Time Firestore Synchronization
-✅ 🔐 Secure Role-Based Access Control
+[![Flutter](https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white)](https://flutter.dev/)
+[![Firebase](https://img.shields.io/badge/Firebase-FFCA28?style=for-the-badge&logo=firebase&logoColor=black)](https://firebase.google.com/)
+[![Riverpod](https://img.shields.io/badge/Riverpod-State_Management-blue?style=for-the-badge)](https://riverpod.dev/)
 
 ---
 
-## 📊 Workflow Model
-
-Sevadaar follows a structured lifecycle:
-
-```
-🆕 Created → 📌 Assigned → 🚧 In Progress → ✅ Completed → 🛡 Approved
-```
-
-This ensures:
-
-* 📈 Transparency
-* 🎯 Accountability
-* 🤝 Clear ownership
-* 📋 Organized task tracking
+## 📌 Table of Contents
+- [About The Project](#-about-the-project)
+- [Key Features](#-key-features)
+- [Role Hierarchies](#-role-hierarchies)
+- [Workflow Deep Dive](#-workflow-deep-dive)
+- [Tech Stack](#-tech-stack)
+- [Getting Started](#-getting-started)
+- [Meet Team HAK](#-meet-team-hak)
 
 ---
 
-# 👥 User Experience
+## 📖 About The Project
 
-🔐 Persistent Login Sessions (Firebase-managed)
-📱 Cross-Platform Support (Android & iOS)
-⚡ Fast Navigation via Auth State Listener
-🎨 Clean NGO-Focused UI
-📊 Real-Time Dashboard Analytics
+Sevadaar bridges the operational gap between Super Admins (NGO Leaders), Admins (Project Managers), and Volunteers (On-the-ground workforce). By leveraging dynamic progress tracking and a First-Come-First-Serve (FCFS) assignment model, Sevadaar completely eliminates the friction of manual task delegation.
 
 ---
 
-# 🛠 Technology Stack
+## 🚀 Key Features
 
-🖥 Framework: Flutter (Dart)
-🔐 Authentication: Firebase Authentication
-📂 Database: Cloud Firestore
-🔄 State Management: StreamBuilder with Firebase Streams
-🎨 UI System: Material Design 3
-🏗 Architecture: Reactive Role-Based Rendering
-
----
-
-# 📱 Application Screens
-
-🚀 Splash Screen – Branding & Initialization
-🔑 Login Screen – Secure Authentication
-📝 Register Screen – Role-Based Account Creation
-📊 Admin Dashboard – Task Statistics & Overview
-📋 Volunteer Dashboard – Assigned Tasks
-📄 Task Detail Screen – Status Updates & Approval
-👤 Profile Screen – User Account Management
+* 🔐 **Multi-Tier Authentication:** Secure, role-based login via Firebase Auth.
+* 🏃 **FCFS Task Engine:** Smart, race-condition-free task acceptance.
+* 📈 **Dynamic Progress Math:** System recalculates overall progress automatically when individual workloads shift or users drop out.
+* ⏳ **Urgency Indicators:** Color-coded timelines (Green, Yellow, Red) based on approaching deadlines.
+* 💬 **Automated Chat Rooms:** Contextual group chats provisioned directly from active tasks.
+* ⚡ **Instant Sync:** Real-time NoSQL updates powered by Cloud Firestore.
 
 ---
 
-# 🔥 Firebase Integration
+## 👥 Role Hierarchies
 
-## 🔐 Authentication & Auto-Login
+### 👑 Developer / Super Admin (The Apex)
+* Pre-seeded into the system infrastructure.
+* Has global visibility over all tasks, users, and transactions.
+* **Core Action:** Promotes active Volunteers to Admins (or demotes them), and sets high-level "To-Do" checklist tasks for Admins to execute.
 
-Sevadaar uses Firebase Authentication for secure session management.
+### 👩‍💼 Admin (The Project Manager)
+* Directly manages standard Volunteers.
+* **Core Action:** Creates percentage-based tasks, invites volunteers, reviews/approves progress updates, and ensures task progression. Moderates auto-generated group chats.
 
-```dart
-StreamBuilder<User?>(
-  stream: FirebaseAuth.instance.authStateChanges(),
-  builder: (context, snapshot) {
-    if (snapshot.hasData) {
-      return RoleBasedDashboard();
-    }
-    return LoginScreen();
-  },
-);
-```
-
-### 🎯 Benefits
-
-* 🔁 Automatic session persistence
-* 🔒 Secure token handling
-* ⚡ Real-time authentication updates
-* 📱 Cross-platform session consistency
+### 👤 Volunteer (The Workforce)
+* The dynamic workforce that accepts tasks on a FCFS basis.
+* **Core Action:** Submits manual, documented progress reports to Admins. Can toggle availability visibility ("Active/Inactive").
 
 ---
 
-# 📂 Firestore Data Structure
+## 📊 Workflow Deep Dive
 
-## 👤 Users Collection
-
-Stores authenticated user data.
-
-Fields:
-
-* displayName
-* email
-* role (admin / volunteer)
-* createdAt
-* updatedAt
-
----
-
-## 📋 Tasks Collection
-
-Core workflow entity.
-
-Fields:
-
-* title
-* description
-* assignedTo (DocumentReference)
-* createdBy (DocumentReference)
-* status
-* deadline
-* approvedBy
-* approvedAt
-* createdAt
-* updatedAt
+1. **The Task Race (FCFS)**  
+   When a task requiring  volunteers is published to a pool, the first  to accept lock in their spots. A Firebase Transaction automatically revokes the invite for the remaining users.
+2. **Progress Mathematics**  
+   Task completion isn't a guess—it's calculated. As volunteers submit progress on their segments, the overall task progression updates the moment an Admin hits "Approve". If a volunteer leaves the team halfway, the system instantly recalculates the main progress bar based on the remaining active members. 
+3. **Deadlines & Danger Zones**  
+   Task cards dynamically shift UI states:  
+   🟢 **Green:** Relaxed (> 50% time left)  
+   🟡 **Yellow:** Impending (30% - 50% time left)  
+   🔴 **Red:** Danger Zone (< 30% time left)
+4. **Chat Archiving**  
+   When an active task hits 100% completion, its corresponding internal team chat is immediately flagged as read-only. 
 
 ---
 
-## 📜 AuditLogs (Optional)
+## 🛠 Tech Stack
 
-Tracks task status changes and approval history.
-
----
-
-# 🔄 Role Permissions
-
-### 👤 Volunteer Can:
-
-* 📌 Update status to In Progress
-* ✅ Mark task as Completed
-
-### 👩‍💼 Admin Can:
-
-* 📝 Create tasks
-* 📌 Assign volunteers
-* 🛡 Approve completed tasks
-* 👀 View all tasks
+* **Frontend Framework:** Flutter (Dart)
+* **State Management:** Riverpod
+* **Backend Database:** Cloud Firestore
+* **Authentication:** Firebase Auth & Google Sign-In
+* **Serverless Backend:** Firebase Cloud Functions (Timeout triggers, complex math calculations)
+* **Push Notifications:** Firebase Cloud Messaging (FCM)
 
 ---
 
-# 📦 Project Structure
+## 💻 Getting Started
 
-```
-lib/
-├── screens/
-│   ├── splash_screen.dart
-│   ├── auth_wrapper.dart
-│   ├── login_screen.dart
-│   ├── register_screen.dart
-│   ├── admin_dashboard.dart
-│   ├── volunteer_dashboard.dart
-│   ├── task_list_screen.dart
-│   ├── task_detail_screen.dart
-│   └── profile_screen.dart
-├── widgets/
-│   ├── task_card.dart
-│   ├── status_badge.dart
-│   └── dashboard_card.dart
-├── models/
-├── services/
-├── firebase_options.dart
-└── main.dart
-```
+### Prerequisites
+* Flutter SDK (3.11.0 or newer)
+* Firebase CLI Configuration
+* Code Editor (VS Code / Android Studio)
 
----
+### Installation
 
-# 🎯 Getting Started
-
-## 📋 Prerequisites
-
-* Flutter SDK 3.0+
-* Firebase Project Setup
-* Android Studio / VS Code
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/kalviumcommunity/S84-0226-TeamHAK-Mobile-App-With-Flutter-And-Firebase-Sevadaar.git
+   cd Sevadaar
+   ```
+2. **Install Flutter Dependencies**
+   ```Bash
+   flutter pub get
+   ```
+3. **Run the App**
+   ```Bash
+   flutter run
+   ```
 
 ---
 
-## ⚙ Installation
+## 👨‍💻 Meet Team HAK
 
-Clone the repository:
+The team adopted a **holistic, cross-functional collaboration model** to deliver Sevadaar, operating without rigid silos to ensure seamless feature integration.
 
-```
-git clone https://github.com/yourusername/S84-0226-TeamHAK-Mobile-App-With-Flutter-And-Firebase-Sevadaar.git
-cd Sevadaar
-```
+* 🎨 **Harsh:** Drove the frontend UI/UX implementations, visual design system, styling structures, and tackled critical application bug fixes.
+* ⚙️ **Avinash & Kartikay:** Led the core system architecture, business logic workflows, screen functionalities, and formulated the overall product idea and system design. 
 
-Install dependencies:
-
-```
-flutter pub get
-```
-
-Configure Firebase:
-
-* Add google-services.json to android/app/
-* Add GoogleService-Info.plist to ios/Runner/
-* Ensure firebase_options.dart is configured
-
-Run the app:
-
-```
-flutter run
-```
-
----
-
-# 🧪 Testing Plan
-
-## 🔐 Authentication Test
-
-1️⃣ Register account
-2️⃣ Login
-3️⃣ Close app
-4️⃣ Reopen
-
-✅ Expected: Auto-login to dashboard
-
----
-
-## 🔄 Workflow Test
-
-1️⃣ Admin creates task
-2️⃣ Admin assigns volunteer
-3️⃣ Volunteer updates status
-4️⃣ Admin approves task
-
-✅ Expected: Real-time updates reflected instantly
-
----
-
-## 🛡 Role-Based Access Test
-
-Volunteer:
-
-* ❌ Cannot approve tasks
-* ❌ Cannot view all tasks
-
-Admin:
-
-* ✅ Can view all tasks
-* ✅ Can approve tasks
-
----
-
-# 🎨 Design Philosophy
-
-🌍 Social Impact Focus
-🔵 Trust-driven color system
-🟢 Green for approval
-🟠 Orange for in-progress
-📊 Clear visual hierarchy
-
----
-
-# 📈 Non-Functional Highlights
-
-⚡ Smooth UI transitions
-🔐 Secure Firestore rules
-📱 Responsive layouts
-📊 Real-time synchronization
-📈 Scalable Firestore structure
-
----
-
-# 👥 Team HAK
-
-🧑‍💻 Kartikay – UI & System Design
-🧑‍💻 Harsh – Firebase Integration
-🧑‍💻 Avinash – Workflow Logic & Testing
-
-🤝 Collaborative full-stack development model.
-
----
-
-# 🎯 Vision
-
-Sevadaar is engineered to bring structure, accountability, and transparency to NGO volunteer coordination through a real-time, mobile-first experience that connects people, purpose, and technology.
+*(Everyone touched the entire codebase to bring the project together as a cohesive unit.)*
 
 ---
