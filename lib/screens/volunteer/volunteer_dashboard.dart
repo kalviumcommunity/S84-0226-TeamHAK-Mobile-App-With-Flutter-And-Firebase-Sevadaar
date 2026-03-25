@@ -12,7 +12,7 @@ import '../../services/ngo_service.dart';
 import '../../services/task_service.dart';
 import '../../state/chat_provider.dart';
 import '../chat/chat_list_screen.dart';
-import 'notices_tab.dart';
+import '../shared/notifications_tab.dart';
 import '../../widgets/profile_button.dart';
 
 // ─── Design Tokens (matches admin dashboard) ─────────────────────────────────
@@ -164,24 +164,6 @@ class _VolunteerDashboardState extends State<VolunteerDashboard>
         body: FadeTransition(opacity: _fadeAnim, child: _buildBody()),
         bottomNavigationBar: _BottomNav(
           selected: _selectedTab,
-          inviteBadge: _currentUser != null
-              ? StreamBuilder<List<TaskModel>>(
-                  stream: _taskService.streamVolunteerInvites(
-                    _currentUser!.uid,
-                    ngoId: _currentUser!.ngoId,
-                  ),
-                  builder: (_, snap) => (snap.data ?? []).isNotEmpty
-                      ? Container(
-                          width: 7,
-                          height: 7,
-                          decoration: const BoxDecoration(
-                            color: _C.red,
-                            shape: BoxShape.circle,
-                          ),
-                        )
-                      : const SizedBox.shrink(),
-                )
-              : null,
           ngoTasksBadge:
               _currentUser != null &&
                   _currentUser!.ngoId != null &&
@@ -190,15 +172,16 @@ class _VolunteerDashboardState extends State<VolunteerDashboard>
                   stream: _taskService.streamNgoTasks(_currentUser!.ngoId!),
                   builder: (_, snap) {
                     final uid = _currentUser!.uid;
-                    final open = (snap.data ?? [])
-                        .where(
-                          (t) =>
-                              t.status == 'inviting' &&
+                    final tasks = snap.data ?? [];
+                    final hasInvitesOrOpen = tasks.any(
+                      (t) =>
+                          (t.pendingInvites.contains(uid)) ||
+                          (t.status == 'inviting' &&
                               !t.assignedVolunteers.contains(uid) &&
-                              !t.declinedBy.contains(uid),
-                        )
-                        .toList();
-                    return open.isNotEmpty
+                              !t.declinedBy.contains(uid)),
+                    );
+
+                    return hasInvitesOrOpen
                         ? Container(
                             width: 7,
                             height: 7,
@@ -272,19 +255,14 @@ class _VolunteerDashboardState extends State<VolunteerDashboard>
     }
     switch (_selectedTab) {
       case 1:
-        return _InvitesTab(
-          currentUser: _currentUser!,
-          taskService: _taskService,
-        );
-      case 2:
         return _NgoTasksTab(
           currentUser: _currentUser!,
           taskService: _taskService,
         );
-      case 3:
+      case 2:
         return ChatListScreen(currentUser: _currentUser!);
-      case 4:
-        return NoticesTab(currentUser: _currentUser!);
+      case 3:
+        return NotificationsTab(currentUser: _currentUser!);
       default:
         return _TasksTab(
           currentUser: _currentUser!,
@@ -293,21 +271,17 @@ class _VolunteerDashboardState extends State<VolunteerDashboard>
         );
     }
   }
-
-
 }
 
 // ─── Bottom Nav ───────────────────────────────────────────────────────────────
 class _BottomNav extends StatelessWidget {
   final int selected;
   final ValueChanged<int> onTab;
-  final Widget? inviteBadge;
   final Widget? ngoTasksBadge;
   final Widget? chatBadge;
   const _BottomNav({
     required this.selected,
     required this.onTab,
-    this.inviteBadge,
     this.ngoTasksBadge,
     this.chatBadge,
   });
@@ -338,31 +312,24 @@ class _BottomNav extends StatelessWidget {
                 onTap: () => onTab(0),
               ),
               _NavItem(
-                icon: Icons.mail_outline_rounded,
-                label: 'Invites',
-                selected: selected == 1,
-                onTap: () => onTab(1),
-                badge: inviteBadge,
-              ),
-              _NavItem(
                 icon: Icons.business_rounded,
                 label: 'NGO Tasks',
-                selected: selected == 2,
-                onTap: () => onTab(2),
+                selected: selected == 1,
+                onTap: () => onTab(1),
                 badge: ngoTasksBadge,
               ),
               _NavItem(
                 icon: Icons.chat_bubble_outline_rounded,
                 label: 'Messages',
-                selected: selected == 3,
-                onTap: () => onTab(3),
+                selected: selected == 2,
+                onTap: () => onTab(2),
                 badge: chatBadge,
               ),
               _NavItem(
                 icon: Icons.notifications_active_rounded,
                 label: 'Notices',
-                selected: selected == 4,
-                onTap: () => onTab(4),
+                selected: selected == 3,
+                onTap: () => onTab(3),
               ),
             ],
           ),
@@ -474,12 +441,20 @@ class _TasksTabState extends State<_TasksTab> {
         final allTasks = (snap.data ?? [])
           ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-        final active = allTasks.where((t) => t.status == 'active').length;
+        final active = allTasks
+            .where((t) => t.status == 'active' || t.status == 'inviting')
+            .length;
         final completed = allTasks.where((t) => t.status == 'completed').length;
 
         final tasks = _filter == null
             ? allTasks
-            : allTasks.where((t) => t.status == _filter).toList();
+            : (_filter == 'active'
+                  ? allTasks
+                        .where(
+                          (t) => t.status == 'active' || t.status == 'inviting',
+                        )
+                        .toList()
+                  : allTasks.where((t) => t.status == _filter).toList());
 
         return CustomScrollView(
           physics: const BouncingScrollPhysics(
@@ -1532,152 +1507,382 @@ class _UpdateProgressButton extends StatelessWidget {
     showDialog(
       context: context,
       builder: (ctx) {
+        bool isSubmitting = false;
+
         return StatefulBuilder(
           builder: (ctx, setD) {
-            return AlertDialog(
+            return Dialog(
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(28),
               ),
-              title: Text(
-                'Update Progress',
-                style: GoogleFonts.dmSans(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 18,
-                  color: _C.textPri,
-                ),
-              ),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Current: ${currentProgress.toStringAsFixed(0)}%',
-                      style: GoogleFonts.dmSans(
-                        fontSize: 13,
-                        color: _C.textSec,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'New: ${requested.toStringAsFixed(0)}%',
-                      style: GoogleFonts.dmSans(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: _C.blue,
-                      ),
-                    ),
-                    Slider(
-                      value: requested,
-                      min: currentProgress,
-                      max: 100,
-                      divisions: (100 - currentProgress).toInt().clamp(1, 100),
-                      activeColor: _C.blue,
-                      onChanged: (v) => setD(() => requested = v),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: noteCtrl,
-                      maxLines: 3,
-                      decoration: InputDecoration(
-                        hintText: 'Describe what you completed...',
-                        hintStyle: GoogleFonts.dmSans(
-                          fontSize: 13,
-                          color: _C.textTer,
-                        ),
-                        filled: true,
-                        fillColor: _C.divider,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                        contentPadding: const EdgeInsets.all(12),
-                      ),
-                      style: GoogleFonts.dmSans(
-                        fontSize: 13,
-                        color: _C.textPri,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: Text(
-                    'Cancel',
-                    style: GoogleFonts.dmSans(color: _C.textSec),
-                  ),
-                ),
-                FilledButton(
-                  onPressed: () async {
-                    if (noteCtrl.text.trim().isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            'Please describe your progress.',
-                            style: GoogleFonts.dmSans(),
-                          ),
-                          backgroundColor: _C.red,
-                        ),
-                      );
-                      return;
-                    }
-                    if (requested <= currentProgress) {
-                      Navigator.pop(ctx);
-                      return;
-                    }
-                    try {
-                      await _withNetworkTimeout(
-                        taskService.submitProgressRequest(
-                          taskId: task.taskId,
-                          taskTitle: task.title,
-                          volunteerId: volunteerId,
-                          adminId: task.adminId,
-                          currentProgress: currentProgress,
-                          requestedProgress: requested,
-                          note: noteCtrl.text.trim(),
-                        ),
-                      );
-                      if (ctx.mounted) Navigator.pop(ctx);
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Progress request submitted!',
-                              style: GoogleFonts.dmSans(),
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.transparent,
+              insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+              child: Container(
+                width: MediaQuery.of(context).size.width, // Forces dialog to be wider
+                padding: const EdgeInsets.all(24),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Header
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: _C.blue.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(16),
                             ),
-                            backgroundColor: _C.green,
-                          ),
-                        );
-                      }
-                    } catch (e) {
-                      if (ctx.mounted) Navigator.pop(ctx);
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Failed to submit request.',
-                              style: GoogleFonts.dmSans(),
+                            child: const Icon(
+                              Icons.data_exploration_rounded,
+                              color: _C.blue,
+                              size: 26,
                             ),
-                            backgroundColor: _C.red,
                           ),
-                        );
-                      }
-                    }
-                  },
-                  style: FilledButton.styleFrom(
-                    backgroundColor: _C.blue,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: Text(
-                    'Submit',
-                    style: GoogleFonts.dmSans(fontWeight: FontWeight.w600),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Update Progress',
+                                  style: GoogleFonts.dmSans(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 20,
+                                    color: _C.textPri,
+                                  ),
+                                ),
+                                Text(
+                                  'Record your latest achievements',
+                                  style: GoogleFonts.dmSans(
+                                    fontSize: 13,
+                                    color: _C.textSec,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 28),
+
+                      // Progress Tracker Card
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              _C.blue.withValues(alpha: 0.05),
+                              _C.blue.withValues(alpha: 0.01),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: _C.blue.withValues(alpha: 0.15)),
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Current',
+                                      style: GoogleFonts.dmSans(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: _C.textSec,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${currentProgress.toStringAsFixed(0)}%',
+                                      style: GoogleFonts.dmSans(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w700,
+                                        color: _C.textPri,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Icon(
+                                  Icons.arrow_right_alt_rounded,
+                                  color: _C.textTer.withValues(alpha: 0.5),
+                                  size: 28,
+                                ),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      'New Target',
+                                      style: GoogleFonts.dmSans(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: _C.blue,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${requested.toStringAsFixed(0)}%',
+                                      style: GoogleFonts.dmSans(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.w800,
+                                        color: _C.blue,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            SliderTheme(
+                              data: SliderThemeData(
+                                activeTrackColor: _C.blue,
+                                inactiveTrackColor: _C.blue.withValues(alpha: 0.15),
+                                thumbColor: Colors.white,
+                                thumbShape: const RoundSliderThumbShape(
+                                  enabledThumbRadius: 12,
+                                  elevation: 4,
+                                ),
+                                overlayColor: _C.blue.withValues(alpha: 0.1),
+                                trackHeight: 8,
+                              ),
+                              child: Slider(
+                                value: requested,
+                                min: currentProgress,
+                                max: 100,
+                                divisions: (100 - currentProgress).toInt().clamp(1, 100),
+                                onChanged: (v) => setD(() => requested = v),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Notes Input
+                      Text(
+                        'Work Details',
+                        style: GoogleFonts.dmSans(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: _C.textPri,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: noteCtrl,
+                        maxLines: 3,
+                        style: GoogleFonts.dmSans(
+                          fontSize: 14,
+                          color: _C.textPri,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Briefly describe what tasks you completed today...',
+                          hintStyle: GoogleFonts.dmSans(
+                            fontSize: 14,
+                            color: _C.textTer,
+                          ),
+                          filled: true,
+                          fillColor: const Color(0xFFF4F7FB),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide.none,
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: const BorderSide(
+                              color: _C.blue,
+                              width: 1.5,
+                            ),
+                          ),
+                          contentPadding: const EdgeInsets.all(16),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      
+                      // Quick Notes
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            'Making steady progress 👍',
+                            'Almost finished ⏳',
+                            'Completed my part ✅',
+                            'Need some assistance ✋',
+                          ].map((phrase) {
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: ActionChip(
+                                label: Text(
+                                  phrase,
+                                  style: GoogleFonts.dmSans(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: _C.textSec,
+                                  ),
+                                ),
+                                backgroundColor: Colors.white,
+                                side: BorderSide(color: _C.textTer.withValues(alpha: 0.3)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                onPressed: () {
+                                  final currentTxt = noteCtrl.text;
+                                  if (currentTxt.isEmpty) {
+                                    noteCtrl.text = phrase;
+                                  } else {
+                                    noteCtrl.text = '$currentTxt\n$phrase';
+                                  }
+                                  noteCtrl.selection = TextSelection.fromPosition(
+                                    TextPosition(offset: noteCtrl.text.length),
+                                  );
+                                },
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+
+                      const SizedBox(height: 32),
+
+                      // Action Buttons
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: isSubmitting ? null : () => Navigator.pop(ctx),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: _C.textSec,
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                side: const BorderSide(color: _C.border),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
+                              child: Text(
+                                'Cancel',
+                                style: GoogleFonts.dmSans(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 15,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            flex: 2,
+                            child: ElevatedButton(
+                              onPressed: isSubmitting
+                                  ? null
+                                  : () async {
+                                      if (noteCtrl.text.trim().isEmpty) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              'Please describe your progress.',
+                                              style: GoogleFonts.dmSans(),
+                                            ),
+                                            backgroundColor: _C.red,
+                                            behavior: SnackBarBehavior.floating,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(12),
+                                            ),
+                                          ),
+                                        );
+                                        return;
+                                      }
+                                      if (requested <= currentProgress) {
+                                        Navigator.pop(ctx);
+                                        return;
+                                      }
+                                      setD(() => isSubmitting = true);
+                                      try {
+                                        await _withNetworkTimeout(
+                                          taskService.submitProgressRequest(
+                                            taskId: task.taskId,
+                                            taskTitle: task.title,
+                                            volunteerId: volunteerId,
+                                            adminId: task.adminId,
+                                            currentProgress: currentProgress,
+                                            requestedProgress: requested,
+                                            note: noteCtrl.text.trim(),
+                                          ),
+                                        );
+                                        if (ctx.mounted) Navigator.pop(ctx);
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'Progress request submitted!',
+                                                style: GoogleFonts.dmSans(),
+                                              ),
+                                              backgroundColor: _C.green,
+                                              behavior: SnackBarBehavior.floating,
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(12),
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                      } catch (e) {
+                                        setD(() => isSubmitting = false);
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'Failed to submit request.',
+                                                style: GoogleFonts.dmSans(),
+                                              ),
+                                              backgroundColor: _C.red,
+                                              behavior: SnackBarBehavior.floating,
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(12),
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                      }
+                                    },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _C.blue,
+                                foregroundColor: Colors.white,
+                                disabledBackgroundColor: _C.blue.withValues(alpha: 0.5),
+                                disabledForegroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
+                              child: isSubmitting
+                                  ? const SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : Text(
+                                      'Submit Update',
+                                      style: GoogleFonts.dmSans(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 15,
+                                      ),
+                                    ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-              ],
+              ),
             );
           },
         );
@@ -1687,309 +1892,7 @@ class _UpdateProgressButton extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// TAB 2 — INVITATIONS
-// ═══════════════════════════════════════════════════════════════════════════════
-class _InvitesTab extends StatelessWidget {
-  final UserModel currentUser;
-  final TaskService taskService;
-  const _InvitesTab({required this.currentUser, required this.taskService});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SafeArea(
-          bottom: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Invitations',
-                      style: GoogleFonts.dmSans(
-                        color: _C.textPri,
-                        fontSize: 28,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    Text(
-                      'Review task invitations from your admin',
-                      style: GoogleFonts.dmSans(color: _C.textSec, fontSize: 13),
-                    ),
-                  ],
-                ),
-                ProfileButton(currentUser: currentUser),
-              ],
-            ),
-          ),
-        ),
-        Expanded(
-          child: StreamBuilder<List<TaskModel>>(
-            stream: taskService.streamVolunteerInvites(
-              currentUser.uid,
-              ngoId: currentUser.ngoId,
-            ),
-            builder: (context, snap) {
-              if (snap.connectionState == ConnectionState.waiting) {
-                return const Center(child: _PulseLoader());
-              }
-              if (snap.hasError) {
-                return const _EmptyState(
-                  icon: Icons.error_outline_rounded,
-                  message: 'Error loading invitations.',
-                );
-              }
-
-              final invites = (snap.data ?? [])
-                ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-
-              if (invites.isEmpty) {
-                return const _EmptyState(
-                  icon: Icons.mail_outline_rounded,
-                  message: 'All clear!\nNo pending invitations.',
-                );
-              }
-
-              return ListView.builder(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 120),
-                physics: const BouncingScrollPhysics(
-                  parent: AlwaysScrollableScrollPhysics(),
-                ),
-                itemCount: invites.length,
-                itemBuilder: (_, i) => _InviteCard(
-                  task: invites[i],
-                  volunteerId: currentUser.uid,
-                  taskService: taskService,
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ─── Invite Card ──────────────────────────────────────────────────────────────
-class _InviteCard extends StatefulWidget {
-  final TaskModel task;
-  final String volunteerId;
-  final TaskService taskService;
-  const _InviteCard({
-    required this.task,
-    required this.volunteerId,
-    required this.taskService,
-  });
-
-  @override
-  State<_InviteCard> createState() => _InviteCardState();
-}
-
-class _InviteCardState extends State<_InviteCard> {
-  bool _loading = false;
-
-  Future<void> _accept() async {
-    setState(() => _loading = true);
-    try {
-      await _withNetworkTimeout(
-        widget.taskService.acceptInvite(widget.task.taskId, widget.volunteerId),
-      );
-      if (mounted) {
-        _snack(
-          context,
-          'Joined "${widget.task.title}"!',
-          _C.green,
-          Icons.check_circle_rounded,
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        _snack(context, 'Failed to accept.', _C.red, Icons.error_rounded);
-      }
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _decline() async {
-    setState(() => _loading = true);
-    try {
-      await _withNetworkTimeout(
-        widget.taskService.declineInvite(
-          widget.task.taskId,
-          widget.volunteerId,
-        ),
-      );
-      if (mounted) {
-        _snack(
-          context,
-          'Declined invitation.',
-          _C.textSec,
-          Icons.remove_circle_rounded,
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        _snack(context, 'Failed to decline.', _C.red, Icons.error_rounded);
-      }
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final task = widget.task;
-    final urgency = _urgencyColor(task.createdAt, task.deadline);
-    final daysLeft = task.deadline.difference(DateTime.now()).inDays;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _C.orange.withValues(alpha: 0.25)),
-        boxShadow: [
-          BoxShadow(
-            color: _C.orange.withValues(alpha: 0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Orange urgency strip
-            Container(
-              width: 4,
-              decoration: BoxDecoration(
-                color: _C.orange,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(20),
-                  bottomLeft: Radius.circular(20),
-                ),
-              ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            task.title,
-                            style: GoogleFonts.dmSans(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: _C.textPri,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        _Chip(label: 'INVITE', color: _C.orange),
-                      ],
-                    ),
-                    const SizedBox(height: 5),
-                    if (task.description.isNotEmpty)
-                      Text(
-                        task.description,
-                        style: GoogleFonts.dmSans(
-                          fontSize: 12,
-                          color: _C.textSec,
-                          height: 1.4,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.people_outline_rounded,
-                          size: 13,
-                          color: _C.textTer,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${task.assignedVolunteers.length}/${task.maxVolunteers}',
-                          style: GoogleFonts.dmSans(
-                            color: _C.textSec,
-                            fontSize: 11,
-                          ),
-                        ),
-                        const Spacer(),
-                        const Icon(
-                          Icons.schedule_outlined,
-                          size: 13,
-                          color: _C.textTer,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          daysLeft < 0
-                              ? 'Overdue'
-                              : daysLeft == 0
-                              ? 'Today'
-                              : '${daysLeft}d left',
-                          style: GoogleFonts.dmSans(
-                            color: urgency,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    if (_loading)
-                      const Center(child: _PulseLoader())
-                    else
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _OutlineActionBtn(
-                              label: 'Decline',
-                              icon: Icons.close_rounded,
-                              color: _C.red,
-                              onTap: _decline,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            flex: 2,
-                            child: _FilledActionBtn(
-                              label: 'Accept',
-                              icon: Icons.check_rounded,
-                              color: _C.green,
-                              onTap: _accept,
-                            ),
-                          ),
-                        ],
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// TAB 3 — NGO TASKS
+// TAB 2 — NGO TASKS
 // ═══════════════════════════════════════════════════════════════════════════════
 class _NgoTasksTab extends StatefulWidget {
   final UserModel currentUser;
@@ -2037,7 +1940,10 @@ class _NgoTasksTabState extends State<_NgoTasksTab> {
                     ),
                     Text(
                       'Browse and join tasks from your NGO',
-                      style: GoogleFonts.dmSans(color: _C.textSec, fontSize: 13),
+                      style: GoogleFonts.dmSans(
+                        color: _C.textSec,
+                        fontSize: 13,
+                      ),
                     ),
                   ],
                 ),
@@ -2087,8 +1993,24 @@ class _NgoTasksTabState extends State<_NgoTasksTab> {
                   .where((t) => t.status == 'completed')
                   .length;
 
+              final uid = widget.currentUser.uid;
               final tasks = _filter == null
-                  ? allTasks
+                  ? allTasks.where((t) {
+                      final isInvitedExplicitly = t.pendingInvites.contains(
+                        uid,
+                      );
+                      final isOpenInvite =
+                          t.status == 'inviting' &&
+                          !t.assignedVolunteers.contains(uid) &&
+                          !t.declinedBy.contains(uid);
+
+                      final isAssigned = t.assignedVolunteers.contains(uid);
+                      final isNotCompleted = t.status != 'completed';
+
+                      return isInvitedExplicitly ||
+                          isOpenInvite ||
+                          (isAssigned && isNotCompleted);
+                    }).toList()
                   : allTasks.where((t) => t.status == _filter).toList();
 
               return Column(
@@ -2820,4 +2742,3 @@ class _PulseLoader extends StatelessWidget {
   Widget build(BuildContext context) =>
       const CircularProgressIndicator(color: _C.blue, strokeWidth: 2.5);
 }
-
